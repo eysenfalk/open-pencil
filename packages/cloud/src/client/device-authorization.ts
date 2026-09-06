@@ -19,6 +19,15 @@ const deviceTokenSchema = v.object({
 })
 const deviceErrorSchema = v.object({ error: v.string(), error_description: v.optional(v.string()) })
 
+export type CloudDeviceErrorCode = 'denied' | 'expired' | 'unavailable'
+
+export class CloudDeviceAuthorizationError extends Error {
+  override readonly name = 'CloudDeviceAuthorizationError'
+  constructor(readonly code: CloudDeviceErrorCode) {
+    super(`Cloud device authorization ${code}`)
+  }
+}
+
 export type CloudDeviceAuthorization = v.InferOutput<typeof deviceCodeSchema>
 export type CloudDeviceToken = v.InferOutput<typeof deviceTokenSchema>
 
@@ -69,7 +78,7 @@ export async function requestCloudDeviceAuthorization(
       scope: 'openid profile'
     })
   })
-  if (!response.ok) throw new Error('Cloud device authorization could not be started')
+  if (!response.ok) throw new CloudDeviceAuthorizationError('unavailable')
   return v.parse(deviceCodeSchema, await response.json())
 }
 
@@ -106,7 +115,10 @@ export async function pollCloudDeviceToken(
       interval += 5000
       continue
     }
-    throw new Error(error.error_description ?? error.error)
+    let code: CloudDeviceErrorCode = 'unavailable'
+    if (error.error === 'access_denied') code = 'denied'
+    else if (error.error === 'expired_token') code = 'expired'
+    throw new CloudDeviceAuthorizationError(code)
   }
-  throw new Error('Cloud device authorization expired')
+  throw new CloudDeviceAuthorizationError('expired')
 }

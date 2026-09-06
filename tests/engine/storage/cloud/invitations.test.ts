@@ -1,10 +1,8 @@
 import { afterEach, expect, test } from 'bun:test'
 
+import { createInvitationAcceptance } from '@/app/cloud/documents/acceptance'
 import { resolveInvitedCloudDocument } from '@/app/cloud/documents/invitations'
-import {
-  connectCloudProfile,
-  useCloudConnectionProfiles
-} from '@/app/cloud/instances/profiles'
+import { connectCloudProfile, useCloudConnectionProfiles } from '@/app/cloud/instances/profiles'
 import {
   readStoragePreferences,
   writeStoragePreference
@@ -67,6 +65,35 @@ test('invited document retains the issuing instance and workspace without switch
     documentId
   })
   expect(target.document).toMatchObject({ id: documentId, name: 'Invited design' })
+})
+
+test('accepted invitation retries document resolution without consuming the token again', async () => {
+  let accepted = 0
+  let downloaded = 0
+  const workflow = createInvitationAcceptance('https://inviter.example', 'invitation', 'secret')
+  const client = {
+    async acceptDocumentInvitation() {
+      accepted++
+      return {
+        id: 'grant',
+        documentId: 'document',
+        userId: 'user',
+        permission: 'view' as const,
+        createdBy: 'owner',
+        createdAt: '',
+        updatedAt: ''
+      }
+    },
+    async getDocument(): Promise<never> {
+      downloaded++
+      throw new Error('Offline')
+    }
+  }
+  await expect(workflow.open(client)).rejects.toThrow('Offline')
+  expect(workflow.accepted).toBe(true)
+  await expect(workflow.open(client)).rejects.toThrow('Offline')
+  expect(accepted).toBe(1)
+  expect(downloaded).toBe(2)
 })
 
 test('failed document access does not add an instance', async () => {

@@ -1,4 +1,10 @@
 
+ja:cloud.invitationViewSummary
+ja:cloud.invitationEditSummary
+ja:cloud.invitationExpires
+zh-cn:cloud.invitationViewSummary
+zh-cn:cloud.invitationEditSummary
+zh-cn:cloud.invitationExpires
 ja:ai.apiKey
 ja:ai.apiType
 ja:ai.baseURL

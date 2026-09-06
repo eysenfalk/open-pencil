@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { deviceAuthorizationMessage } from '@/app/cloud/settings/errors'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -38,6 +39,10 @@ const selectedConnection = computed({
 const deviceAuth = computed(() => {
   const id = cloud.activeProfile.value?.id
   return id ? (cloud.deviceAuthByConnection.value[id] ?? { status: 'idle' as const }) : null
+})
+const deviceError = computed(() => {
+  const key = deviceAuth.value ? deviceAuthorizationMessage(deviceAuth.value) : null
+  return key ? cloudMessages.value[key] : ''
 })
 const presentation = computed(() =>
   cloudConnectionPresentation(cloud.state.value?.status ?? 'disconnected')
@@ -253,7 +258,7 @@ async function openWorkspace() {
         v-else-if="deviceAuth && ['denied', 'expired', 'error'].includes(deviceAuth.status)"
         class="mt-3 text-[10px] text-danger"
       >
-        {{ 'message' in deviceAuth ? deviceAuth.message : '' }}
+        {{ deviceError }}
       </p>
 
       <AppSelect

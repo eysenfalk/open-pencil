@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 
+import { CloudDeviceAuthorizationError } from '@open-pencil/cloud/client'
 import type { CloudDeviceAuthorization } from '@open-pencil/cloud/client'
 import type { CloudDiscovery } from '@open-pencil/cloud/contract'
 
@@ -62,6 +63,26 @@ function fixture(overrides: Partial<DeviceAuthorizationDependencies> = {}) {
   }
   return { tokens, opened, session: createDeviceAuthorizationSession(dependencies) }
 }
+
+test('protocol codes determine failure state, never English message substrings', async () => {
+  const denied = fixture({
+    poll: async () => {
+      throw new CloudDeviceAuthorizationError('denied')
+    }
+  })
+  expect(await denied.session.authorize(discovery, profile)).toBe(false)
+  expect(denied.session.state.value[profile.id]).toEqual({ status: 'denied' })
+  const unknown = fixture({
+    poll: async () => {
+      throw new Error('expired denied private server detail')
+    }
+  })
+  expect(await unknown.session.authorize(discovery, profile)).toBe(false)
+  expect(unknown.session.state.value[profile.id]).toEqual({
+    status: 'error',
+    code: 'authorizationFailed'
+  })
+})
 
 test('cancelling a delayed code request never opens the browser or saves a token', async () => {
   const request = deferred<CloudDeviceAuthorization>()

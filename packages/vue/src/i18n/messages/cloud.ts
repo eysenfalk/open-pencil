@@ -106,10 +106,21 @@ export const cloudMessageDefaults = {
   loadingAuthorization: 'Loading authorization…',
   deny: 'Deny',
   authorize: 'Authorize',
+  authorizationExpired: 'Authorization expired. Please try again.',
+  authorizationFailed: 'Authorization failed. Please try again.',
+  credentialCleanupFailed: 'The saved credential could not be removed. Sign out to retry cleanup.',
   authorizationDenied: 'Authorization denied.',
   documentInvitation: 'Document invitation',
   loadingInvitation: 'Loading invitation…',
   acceptingInvitation: 'Accepting…',
+  invitationUnavailable: 'This invitation is invalid or no longer available.',
+  invitationAcceptFailed:
+    'This invitation could not be accepted. Check your account and try again.',
+  invitationOpenFailed:
+    'The invitation was accepted, but the document could not be opened. Please retry.',
+  invitationViewSummary: params('{inviter} invited {recipient} to view {document}.'),
+  invitationEditSummary: params('{inviter} invited {recipient} to edit {document}.'),
+  invitationExpires: params('Expires {date}'),
   acceptInvitation: 'Accept invitation'
 } as const
 

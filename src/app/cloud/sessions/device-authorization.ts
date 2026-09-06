@@ -1,6 +1,10 @@
 import { ref } from 'vue'
 
-import { pollCloudDeviceToken, requestCloudDeviceAuthorization } from '@open-pencil/cloud/client'
+import {
+  CloudDeviceAuthorizationError,
+  pollCloudDeviceToken,
+  requestCloudDeviceAuthorization
+} from '@open-pencil/cloud/client'
 import type { CloudDiscovery } from '@open-pencil/cloud/contract'
 
 import { appCredentialServices } from '@/app/settings/credentials/app'
@@ -13,7 +17,8 @@ export type CloudDeviceAuthState =
   | { status: 'idle' }
   | { status: 'waiting'; userCode: string; verificationURL: string; expiresAt: number }
   | { status: 'authorized' }
-  | { status: 'denied' | 'expired' | 'error'; message: string }
+  | { status: 'denied' | 'expired' }
+  | { status: 'error'; code: 'authorizationFailed' | 'credentialCleanupFailed' }
 
 export type DeviceAuthorizationDependencies = {
   request: typeof requestCloudDeviceAuthorization
@@ -107,18 +112,16 @@ export function createDeviceAuthorizationSession(
         if (cleanupFailures.has(controller.signal) && !controllers.has(profile.id)) {
           publish(profile.id, {
             status: 'error',
-            message:
-              'Authorization was cancelled, but its saved credential could not be removed. Sign out to retry cleanup.'
+            code: 'credentialCleanupFailed'
           })
         }
         return false
       }
-      const message = error instanceof Error ? error.message : String(error)
-      const lowered = message.toLowerCase()
-      let status: 'expired' | 'denied' | 'error' = 'error'
-      if (lowered.includes('expired')) status = 'expired'
-      else if (lowered.includes('denied')) status = 'denied'
-      publish(profile.id, { status, message })
+      if (error instanceof CloudDeviceAuthorizationError && error.code !== 'unavailable') {
+        publish(profile.id, { status: error.code })
+      } else {
+        publish(profile.id, { status: 'error', code: 'authorizationFailed' })
+      }
       return false
     } finally {
       if (controllers.get(profile.id) === controller) controllers.delete(profile.id)

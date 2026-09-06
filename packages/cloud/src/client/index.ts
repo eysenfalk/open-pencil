@@ -18,6 +18,8 @@ export {
   type CloudSocialProvider
 } from './auth'
 export {
+  CloudDeviceAuthorizationError,
+  type CloudDeviceErrorCode,
   pollCloudDeviceToken,
   requestCloudDeviceAuthorization,
   type CloudDeviceAuthorization,

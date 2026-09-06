@@ -73,7 +73,10 @@ describe('Cloud device authorization client', () => {
           { status: 400 }
         )
     })
-    await expect(error).rejects.toThrow('Authorization denied')
+    await expect(error).rejects.toMatchObject({
+      name: 'CloudDeviceAuthorizationError',
+      code: 'denied'
+    })
   })
 
   test('expires before another token request', async () => {
