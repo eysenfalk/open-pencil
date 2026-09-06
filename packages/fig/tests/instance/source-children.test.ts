@@ -13,7 +13,7 @@ import { initCodec } from '@open-pencil/core/kiwi'
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 import { SceneGraph } from '@open-pencil/scene-graph'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 test('derives repeated nested child correspondence from materialized component occurrences', async () => {
   const changes: NodeChange[] = [

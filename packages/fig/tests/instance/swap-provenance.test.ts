@@ -4,7 +4,7 @@ import { interpretInstance, resolveOccurrencePath } from '#fig/instance-override
 
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 test('a saved swap applies replacement bindings before explicit root and child claims', () => {
   const property = guid(90)

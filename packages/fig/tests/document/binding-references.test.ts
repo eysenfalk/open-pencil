@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test'
 
 import { resolveDocumentBindingReferences } from '#fig/document/binding-references'
-import { nodeChangeToProps } from '@open-pencil/fig/node-change'
 
+import { nodeChangeToProps } from '@open-pencil/fig/node-change'
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 test('normalizes versioned scalar, paint and mode references without mutating source records', () => {
   const changes = [

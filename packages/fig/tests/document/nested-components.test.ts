@@ -4,7 +4,7 @@ import { materializeDocument } from '#fig/document/materialize'
 
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 test('constructs nested definitions once under their actual component parent', () => {
   const changes: NodeChange[] = [

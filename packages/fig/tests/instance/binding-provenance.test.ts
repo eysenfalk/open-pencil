@@ -14,22 +14,25 @@ import { mapInstanceSourceChildren } from '#fig/instance-overrides/source-childr
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 import { SceneGraph, hasInstanceOverride } from '@open-pencil/scene-graph'
 
+import { guid } from '../helpers/guid'
+
 test('materialization preserves explicit equal-to-default text', () => {
-  const guid = (localID: number) => ({ sessionID: 3, localID })
   const changes: NodeChange[] = [
-    { guid: guid(1), type: 'SYMBOL' },
+    { guid: guid(1, 3), type: 'SYMBOL' },
     {
-      guid: guid(2),
+      guid: guid(2, 3),
       type: 'TEXT',
-      parentIndex: { guid: guid(1), position: '!' },
+      parentIndex: { guid: guid(1, 3), position: '!' },
       textData: { characters: 'Default' }
     },
     {
-      guid: guid(3),
+      guid: guid(3, 3),
       type: 'INSTANCE',
       symbolData: {
-        symbolID: guid(1),
-        symbolOverrides: [{ guidPath: { guids: [guid(2)] }, textData: { characters: 'Default' } }]
+        symbolID: guid(1, 3),
+        symbolOverrides: [
+          { guidPath: { guids: [guid(2, 3)] }, textData: { characters: 'Default' } }
+        ]
       }
     } as NodeChange
   ]
@@ -57,23 +60,22 @@ const id = { sessionID: 1, localID: 10 }
 
 for (const assigned of [false, true]) {
   test(`materialization protects Boolean assignments only (assigned=${assigned})`, () => {
-    const guid = (localID: number) => ({ sessionID: 2, localID })
     const changes = [
       {
-        guid: guid(1),
+        guid: guid(1, 2),
         type: 'SYMBOL',
         componentPropDefs: [{ id, initialValue: { boolValue: false } }]
       },
       {
-        guid: guid(2),
+        guid: guid(2, 2),
         type: 'RECTANGLE',
-        parentIndex: { guid: guid(1), position: '!' },
+        parentIndex: { guid: guid(1, 2), position: '!' },
         componentPropRefs: [{ defID: id, componentPropNodeField: 'VISIBLE' }]
       },
       {
-        guid: guid(3),
+        guid: guid(3, 2),
         type: 'INSTANCE',
-        symbolData: { symbolID: guid(1) },
+        symbolData: { symbolID: guid(1, 2) },
         componentPropAssignments: assigned ? [{ defID: id, value: { boolValue: false } }] : []
       }
     ] as NodeChange[]

@@ -5,7 +5,7 @@ import type { SymbolOverride } from '#fig/instance-overrides/types'
 
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 function withRootOverrides(
   changes: NodeChange[],

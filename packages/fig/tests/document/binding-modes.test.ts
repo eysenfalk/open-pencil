@@ -6,7 +6,7 @@ import { materializeDocument } from '#fig/document/materialize'
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 import { SceneGraph } from '@open-pencil/scene-graph'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 test('saved occurrence dimensions win over unscaled bindings without blocking spacing', () => {
   const graph = new SceneGraph()

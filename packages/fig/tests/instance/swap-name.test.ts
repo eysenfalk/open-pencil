@@ -4,7 +4,7 @@ import { interpretInstance } from '#fig/instance-overrides/interpret'
 
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 // Live Figma swapComponent probe: untouched name follows replacement, custom name stays.
 test('a nested swap adopts the replacement name when no instance name is supplied', () => {

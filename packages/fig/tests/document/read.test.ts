@@ -5,7 +5,7 @@ import { createDocumentReader } from '#fig/document/read'
 
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 test('reads pages independently through one index with cross-page component expansion', () => {
   const changes: NodeChange[] = [

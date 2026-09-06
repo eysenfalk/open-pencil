@@ -5,7 +5,7 @@ import { createDocumentReader } from '#fig/document/read'
 
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 test('copies archive images into document-owned resources', () => {
   const bytes = new Uint8Array([1, 2, 3])

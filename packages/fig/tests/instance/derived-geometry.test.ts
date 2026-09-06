@@ -7,7 +7,7 @@ import { FigmaAPI } from '@open-pencil/core'
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 import { SceneGraph } from '@open-pencil/scene-graph'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 test('occurrence text size replaces source cache and is invalidated by a text edit', () => {
   const changes = [

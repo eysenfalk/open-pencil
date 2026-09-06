@@ -9,7 +9,7 @@ import { initCodec } from '@open-pencil/core/kiwi'
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 import { SceneGraph } from '@open-pencil/scene-graph'
 
-const guid = (localID: number) => ({ sessionID: 1, localID })
+import { guid } from '../helpers/guid'
 
 test('nested instances retain their outer source-child correspondence during sync', () => {
   const source: NodeChange[] = [
