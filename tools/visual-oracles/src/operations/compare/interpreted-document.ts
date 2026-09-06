@@ -31,9 +31,10 @@ if (
 ) {
   throw new Error('Invalid oracle capture identity')
 }
-const { nodeChanges, blobs } = parseFigBuffer(await Bun.file(values.file).arrayBuffer())
+const { nodeChanges, blobs, images } = parseFigBuffer(await Bun.file(values.file).arrayBuffer())
 const diagnostics: unknown[] = []
 const { graph, sources } = materializeDocument(nodeChanges, blobs, {
+  images: new Map(images),
   derivedBounds: true,
   onUnresolvedProperty: (diagnostic) => diagnostics.push(diagnostic)
 })

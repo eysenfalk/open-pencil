@@ -373,6 +373,22 @@ export function drawReflowedPathTextSilhouettes(
  *                            black fills vs white strokeGeometry
  *   4. scale(fontSize,-fs) — font units → px; Y flip (font space is up-positive)
  */
+export function canDrawSavedText(node: SceneNode, fill?: Fill): boolean {
+  if (fill && fill.type !== 'SOLID') return false
+  if (node.styleRuns.length === 0) return true
+  if (node.fills.filter((paint) => paint.visible).length !== 1) return false
+  return (
+    !!node.derivedTextGlyphs?.every((glyph) => glyph.firstCharacter !== undefined) &&
+    node.styleRuns.every(
+      (run) =>
+        !run.style.fills ||
+        run.style.fills.every(
+          (paint) => paint.type === 'SOLID' && (!paint.blendMode || paint.blendMode === 'NORMAL')
+        )
+    )
+  )
+}
+
 export function drawDerivedText(r: SkiaRenderer, canvas: Canvas, node: SceneNode): boolean {
   if (!node.derivedTextGlyphs?.length) return false
 
@@ -388,7 +404,29 @@ export function drawDerivedText(r: SkiaRenderer, canvas: Canvas, node: SceneNode
     applyGlyphEmTransform(canvas, glyph, glyphY)
     const shouldUseHardCoverage = shouldUseHardDerivedGlyphCoverage(node)
     if (shouldUseHardCoverage) r.fillPaint.setAntiAlias(false)
-    canvas.drawPath(path, r.fillPaint)
+    const run =
+      glyph.firstCharacter === undefined
+        ? undefined
+        : node.styleRuns.find(
+            (run) =>
+              glyph.firstCharacter !== undefined &&
+              glyph.firstCharacter >= run.start &&
+              glyph.firstCharacter < run.start + run.length
+          )
+    const fills = run?.style.fills
+    if (fills && canDrawSavedText(node)) {
+      const paint = r.fillPaint.copy()
+      try {
+        for (const fill of fills) {
+          if (!fill.visible || fill.type !== 'SOLID') continue
+          const color = fill.color
+          paint.setColor(r.ck.Color4f(color.r, color.g, color.b, color.a * fill.opacity))
+          canvas.drawPath(path, paint)
+        }
+      } finally {
+        paint.delete()
+      }
+    } else canvas.drawPath(path, r.fillPaint)
     if (shouldUseHardCoverage) r.fillPaint.setAntiAlias(true)
     canvas.restore()
     path.delete()

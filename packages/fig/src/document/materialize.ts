@@ -15,6 +15,7 @@ import { createDocumentReader } from './read'
 import { materializeVariableResources } from './variables'
 
 export interface DocumentAssemblyOptions extends InterpretInstanceOptions {
+  images?: ReadonlyMap<string, Uint8Array>
   /** Explicit acknowledgement until variable-resource conversion is implemented. */
   onUnsupportedResource?: (resource: NodeChange) => void
   onUnresolvedBinding?: (diagnostic: BindingReferenceDiagnostic) => void
@@ -35,6 +36,7 @@ export function materializeDocument(
   const pages = reader.pages.map((page) => reader.readPage(page.id, options))
   const plan = reader.planComponents(pages, options)
   const graph = new SceneGraph()
+  for (const [hash, bytes] of options.images ?? []) graph.images.set(hash, bytes.slice())
   materializeVariableResources(graph, reader.resources, options.onUnsupportedResource)
   for (const page of graph.getPages()) graph.deleteNode(page.id)
   const sources = new Map<string, string>()

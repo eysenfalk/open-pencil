@@ -7,6 +7,14 @@ import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 
 const guid = (localID: number) => ({ sessionID: 1, localID })
 
+test('copies archive images into document-owned resources', () => {
+  const bytes = new Uint8Array([1, 2, 3])
+  const { graph } = materializeDocument([], [], { images: new Map([['image-hash', bytes]]) })
+  expect(graph.images.get('image-hash')).toEqual(bytes)
+  bytes[0] = 9
+  expect(graph.images.get('image-hash')?.[0]).toBe(1)
+})
+
 test('loads mode values without treating false, zero or empty text as missing', () => {
   const mode = guid(10)
   const collection = guid(3)

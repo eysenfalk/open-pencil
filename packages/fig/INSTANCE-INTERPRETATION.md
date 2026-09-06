@@ -132,6 +132,22 @@ properties, not paint, pixels, or successful layout recomputation.
 The latest Gold comparison has 887 nodes on both sides, no structural/semantic/visible-geometry
 differences, and 335 hidden-geometry differences. Unresolved-path callbacks remain unclassified.
 
+## Saved text rendering
+
+Valid saved glyphs take precedence over available-font reshaping for plain solid text and
+supported solid-color style runs. Glyph character indices select run paint. Unsupported
+complex run paints or missing indices remain outside this coverage. Actual ligatures,
+complex fills, and complete decoration behavior still require acceptance tests.
+
+Text/font/variation/feature and layout-placement edits invalidate cached glyphs unless the
+same mutation supplies replacements. Paint-only edits preserve geometry. Font availability
+must not be interpreted as verified binary identity: Gold's saved Inter digest matches
+Figma's hosted `Inter_1` (3.019), not bundled Inter 4.001. Exact identity reporting is pending.
+
+The saved-glyph visual regression runs against an isolated worktree app and MCP endpoint.
+Existing typography/text-path snapshot differences produce identical actual images with and
+without this rendering change; their baselines are not updated by this work.
+
 ## Remaining acceptance gaps
 
 - Complete ownership and precedence of provenance through inheritance, swaps, and re-expansion.

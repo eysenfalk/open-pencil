@@ -9,6 +9,8 @@ export const TEXT_PICTURE_KEYS: ReadonlySet<string> = new Set([
   'fontSize',
   'fontFamily',
   'fontWeight',
+  'fontVariations',
+  'fontFeatures',
   'italic',
   'textAlignHorizontal',
   'textDirection',
@@ -28,7 +30,11 @@ export const GLYPH_AFFECTING_KEYS: ReadonlySet<string> = new Set([
   'fontSize',
   'fontFamily',
   'fontWeight',
+  'fontVariations',
+  'fontFeatures',
   'italic',
+  'textAlignHorizontal',
+  'textAlignVertical',
   'textDirection',
   'lineHeight',
   'letterSpacing',
@@ -44,7 +50,9 @@ export const GLYPH_AFFECTING_KEYS: ReadonlySet<string> = new Set([
 export function invalidateTextCaches(node: SceneNode, changes: Partial<SceneNode>): void {
   const keys = Object.keys(changes)
   if (node.textPicture && keys.some((key) => TEXT_PICTURE_KEYS.has(key))) node.textPicture = null
-  const glyphsInvalidated = keys.some((key) => GLYPH_AFFECTING_KEYS.has(key))
+  const glyphsInvalidated =
+    keys.some((key) => GLYPH_AFFECTING_KEYS.has(key)) ||
+    ['width', 'height', 'textAutoResize', 'maxLines'].some((key) => key in changes)
   if (glyphsInvalidated && !('derivedLayout' in changes)) node.derivedLayout = null
   // A successful path-text edit supplies reflowed glyphs in `changes`. Every
   // other mutation path must drop stale baked glyphs and path identity rather

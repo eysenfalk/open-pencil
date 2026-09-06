@@ -332,6 +332,8 @@ export interface TextPathData {
 }
 
 export interface DerivedTextGlyph {
+  /** UTF-16 source-text cluster start, when supplied by the shaping source. */
+  firstCharacter?: number
   commandsBlob: Uint8Array
   x: number
   y: number
