@@ -74,6 +74,11 @@ export interface LibraryObjectStore {
   listObjects(prefix: string): Promise<LibraryObjectSummary[]>
 }
 
+export type StorageDocumentSnapshot = {
+  bytes: Uint8Array
+  remoteRevisionId: string | null
+}
+
 export interface StorageAdapter {
   testConnection(): Promise<StorageConnectionResult>
   listDocuments(): Promise<StorageDocument[]>
@@ -82,6 +87,11 @@ export interface StorageAdapter {
     onProgress?: (progress: StorageTransferProgress) => void,
     signal?: AbortSignal
   ): Promise<Uint8Array>
+  getDocumentSnapshot?(
+    id: string,
+    onProgress?: (progress: StorageTransferProgress) => void,
+    signal?: AbortSignal
+  ): Promise<StorageDocumentSnapshot>
   putDocument(
     id: string,
     bytes: Uint8Array,

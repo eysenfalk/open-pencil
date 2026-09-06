@@ -3,6 +3,7 @@ import { cloudConnectionService } from '@/app/cloud/sessions/service'
 
 import type {
   StorageAdapter,
+  StorageDocumentSnapshot,
   StorageDocumentMetadata,
   StorageProviderRuntime,
   StorageTransferProgress
@@ -57,7 +58,29 @@ export function createCloudStorageAdapter(
     return connection.client
   }
 
+  async function getDocumentSnapshot(
+    id: string,
+    onProgress?: (progress: StorageTransferProgress) => void,
+    signal?: AbortSignal
+  ): Promise<StorageDocumentSnapshot> {
+    const download = await (await client()).getDocument(id)
+    const response = await transport.objectFetch(download.download.url, {
+      method: download.download.method,
+      headers: download.download.headers,
+      signal
+    })
+    if (!response.ok) throw new Error(`Cloud document download failed with HTTP ${response.status}`)
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    if (bytes.byteLength !== download.byteSize)
+      throw new Error('Cloud document size verification failed')
+    if ((await sha256(bytes)) !== download.checksum)
+      throw new Error('Cloud document checksum verification failed')
+    reportProgress(onProgress, bytes.byteLength, download.byteSize)
+    return { bytes, remoteRevisionId: download.revisionId }
+  }
+
   return {
+    getDocumentSnapshot,
     async testConnection() {
       try {
         const cloud = await client()
@@ -81,34 +104,24 @@ export function createCloudStorageAdapter(
       }))
     },
 
-    async getDocument(id, onProgress) {
-      const download = await (await client()).getDocument(id)
-      const response = await transport.objectFetch(download.download.url, {
-        method: download.download.method,
-        headers: download.download.headers
-      })
-      if (!response.ok)
-        throw new Error(`Cloud document download failed with HTTP ${response.status}`)
-      const bytes = new Uint8Array(await response.arrayBuffer())
-      if (bytes.byteLength !== download.byteSize)
-        throw new Error('Cloud document size verification failed')
-      if ((await sha256(bytes)) !== download.checksum)
-        throw new Error('Cloud document checksum verification failed')
-      reportProgress(onProgress, bytes.byteLength, download.byteSize)
-      return bytes
+    async getDocument(id, onProgress, signal) {
+      return (await getDocumentSnapshot(id, onProgress, signal)).bytes
     },
 
     async putDocument(id, bytes, metadata, onProgress, options) {
       const cloud = await client()
-      const documents = await cloud.listDocuments(workspaceId)
-      let document = documents.find((candidate) => candidate.id === id)
-      if (!document) {
-        document = await cloud.createDocument(workspaceId, { id, name: metadata.name })
+      // A known revision identifies an existing document. Its direct grant is
+      // sufficient for upload; listing the containing workspace is not required.
+      if (!options?.remoteRevisionId) {
+        const documents = await cloud.listDocuments(workspaceId)
+        if (!documents.some((candidate) => candidate.id === id)) {
+          await cloud.createDocument(workspaceId, { id, name: metadata.name })
+        }
       }
       const checksum = await sha256(bytes)
       const pending = await uploadCloudObject({
         cloud,
-        documentId: document.id,
+        documentId: id,
         bytes,
         checksum,
         baseRevisionId: options?.remoteRevisionId ?? null,

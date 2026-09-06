@@ -2,6 +2,7 @@ import type { EditorPreparationHandle } from '@/app/editor/preparation/types'
 import type {
   StorageAdapter,
   StorageDocument,
+  StorageTransferProgress,
   StorageDocumentBinding
 } from '@/app/integrations/storage/types'
 import { storageCanvasId } from '@/app/storage/id'
@@ -28,24 +29,28 @@ export async function readStorageDocument(
     metadata.updatedAt >= document.updatedAt
   let bytes = cached && authoritative ? cached : null
   if (!bytes) {
-    bytes = await adapter.getDocument(
-      document.id,
-      (progress) =>
-        load.update({
-          phase: 'reading',
-          detail: document.name,
-          completed: progress.transferredBytes,
-          total: progress.totalBytes,
-          unit: 'bytes'
-        }),
-      load.signal
-    )
+    const progress = (progress: StorageTransferProgress) =>
+      load.update({
+        phase: 'reading',
+        detail: document.name,
+        completed: progress.transferredBytes,
+        total: progress.totalBytes,
+        unit: 'bytes'
+      })
+    const snapshot = adapter.getDocumentSnapshot
+      ? await adapter.getDocumentSnapshot(document.id, progress, load.signal)
+      : {
+          bytes: await adapter.getDocument(document.id, progress, load.signal),
+          remoteRevisionId: document.remoteRevisionId
+        }
+    bytes = snapshot.bytes
     load.signal.throwIfAborted()
     await seedStorageCanvasFromRemote({
       ...binding,
       canvasId,
       name: document.name,
       updatedAt: document.updatedAt,
+      remoteRevisionId: snapshot.remoteRevisionId,
       figBytes: bytes
     })
     load.signal.throwIfAborted()
