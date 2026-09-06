@@ -1,16 +1,10 @@
 import { createGlobalState } from '@vueuse/core'
 import { computed, ref, shallowRef } from 'vue'
 
-import type { CloudSocialProvider } from '@open-pencil/cloud/client'
+import { cloudSignInURL } from '@open-pencil/cloud/client'
 import type { WorkspaceEntitlements } from '@open-pencil/cloud/contract'
 import { IS_TAURI } from '@open-pencil/core/constants'
 
-import { appCredentialServices } from '@/app/settings/credentials/app'
-import { credentialRef } from '@/app/settings/credentials/reference'
-import { openExternalURL } from '@/app/tauri/opener'
-
-import { readStoragePreferences, writeStoragePreference } from '../preferences'
-import { normalizeCloudServerURL, type CloudConnectionSnapshot } from './connection'
 import {
   activeCloudConnectionProfile,
   connectCloudProfile,
@@ -19,17 +13,23 @@ import {
   updateCloudConnectionWorkspace,
   useCloudConnectionProfiles,
   type CloudConnectionKind
-} from './profiles'
-import { cloudConnectionService } from './service'
+} from '@/app/cloud/instances/profiles'
+import {
+  normalizeCloudServerURL,
+  type CloudConnectionSnapshot
+} from '@/app/cloud/sessions/connection'
+import { createDeviceAuthorizationSession } from '@/app/cloud/sessions/device-authorization'
+import { cloudConnectionService } from '@/app/cloud/sessions/service'
+import { signOutCloudSession } from '@/app/cloud/sessions/sign-out'
+import {
+  readStoragePreferences,
+  writeStoragePreference
+} from '@/app/integrations/storage/preferences'
+import { appCredentialServices } from '@/app/settings/credentials/app'
+import { credentialRef } from '@/app/settings/credentials/reference'
 
 const PROVIDER_ID = 'openpencil-cloud'
 const SERVER_URL_FIELD = 'server-url'
-
-export type CloudDeviceAuthState =
-  | { status: 'idle' }
-  | { status: 'waiting'; userCode: string; verificationURL: string; expiresAt: number }
-  | { status: 'authorized' }
-  | { status: 'denied' | 'expired' | 'error'; message: string }
 
 function createCloudStorageSettings() {
   const { profiles, activeProfileId } = useCloudConnectionProfiles()
@@ -41,8 +41,10 @@ function createCloudStorageSettings() {
       : initialProfile.serverURL
   )
   const state = ref<CloudConnectionSnapshot | null>(null)
-  const deviceAuthByConnection = ref<Record<string, CloudDeviceAuthState>>({})
-  const deviceAuthControllers = new Map<string, AbortController>()
+  const deviceAuthorization = createDeviceAuthorizationSession()
+  const deviceAuthByConnection = deviceAuthorization.state
+  const cancelDeviceAuth = deviceAuthorization.cancel
+  let entitlementsGeneration = 0
   const entitlements = shallowRef<WorkspaceEntitlements | null>(null)
   const entitlementsLoading = ref(false)
   const entitlementsError = ref<string | null>(null)
@@ -71,6 +73,10 @@ function createCloudStorageSettings() {
   }
 
   async function selectConnection(id: string): Promise<void> {
+    entitlementsGeneration++
+    entitlements.value = null
+    entitlementsLoading.value = false
+    entitlementsError.value = null
     const profile = selectCloudConnectionProfile(id)
     serverURL.value = profile.serverURL
     state.value = cloudConnectionService.get(profile.serverURL)
@@ -79,6 +85,11 @@ function createCloudStorageSettings() {
   }
 
   function disconnectConnection(id: string): void {
+    entitlementsGeneration++
+    entitlements.value = null
+    entitlementsLoading.value = false
+    entitlementsError.value = null
+    cancelDeviceAuth(id)
     const profile = profiles.value.find((candidate) => candidate.id === id)
     if (profile) cloudConnectionService.disconnect(profile.serverURL)
     disconnectCloudProfile(id)
@@ -87,65 +98,27 @@ function createCloudStorageSettings() {
     state.value = active ? cloudConnectionService.get(active.serverURL) : null
   }
 
-  function setDeviceAuth(connectionId: string, value: CloudDeviceAuthState) {
-    deviceAuthByConnection.value = { ...deviceAuthByConnection.value, [connectionId]: value }
-  }
-
-  function cancelDeviceAuth(connectionId: string) {
-    deviceAuthControllers
-      .get(connectionId)
-      ?.abort(new DOMException('Authorization cancelled', 'AbortError'))
-    deviceAuthControllers.delete(connectionId)
-    setDeviceAuth(connectionId, { status: 'idle' })
-  }
-
   async function startDesktopDeviceAuth(
     discovery: NonNullable<CloudConnectionSnapshot['discovery']>,
     profile: NonNullable<ReturnType<typeof activeCloudConnectionProfile>>
   ) {
-    cancelDeviceAuth(profile.id)
-    const controller = new AbortController()
-    deviceAuthControllers.set(profile.id, controller)
-    const { pollCloudDeviceToken, requestCloudDeviceAuthorization } =
-      await import('@open-pencil/cloud/client')
-    try {
-      const authorization = await requestCloudDeviceAuthorization(discovery, profile.id)
-      setDeviceAuth(profile.id, {
-        status: 'waiting',
-        userCode: authorization.user_code,
-        verificationURL: authorization.verification_uri_complete,
-        expiresAt: Date.now() + authorization.expires_in * 1000
-      })
-      await openExternalURL(authorization.verification_uri_complete)
-      const token = await pollCloudDeviceToken(discovery, profile.id, authorization, {
-        signal: controller.signal
-      })
-      controller.signal.throwIfAborted()
-      await appCredentialServices.manager.set(
-        credentialRef('openpencil-cloud', 'session', profile.id),
-        token.access_token
-      )
-      setDeviceAuth(profile.id, { status: 'authorized' })
-      state.value = await cloudConnectionService.refresh(profile.serverURL)
-      await refreshEntitlements()
-    } catch (error) {
-      if (controller.signal.aborted) return
-      const message = error instanceof Error ? error.message : String(error)
-      const lowered = message.toLowerCase()
-      let status: CloudDeviceAuthState['status'] = 'error'
-      if (lowered.includes('expired')) status = 'expired'
-      else if (lowered.includes('denied')) status = 'denied'
-      setDeviceAuth(profile.id, { status, message })
-    } finally {
-      if (deviceAuthControllers.get(profile.id) === controller)
-        deviceAuthControllers.delete(profile.id)
-    }
+    if (!(await deviceAuthorization.authorize(discovery, profile))) return
+    const connection = await cloudConnectionService.refresh(profile.serverURL)
+    if (activeCloudConnectionProfile()?.id !== profile.id) return
+    state.value = connection
+    await refreshEntitlements()
   }
 
   async function refreshEntitlements(): Promise<void> {
+    const generation = ++entitlementsGeneration
     const connection = state.value ? cloudConnectionService.get(state.value.serverURL) : null
     const workspaceId = state.value?.selectedWorkspaceId
+    const isCurrent = () =>
+      generation === entitlementsGeneration &&
+      connection?.serverURL === serverURL.value &&
+      workspaceId === state.value?.selectedWorkspaceId
     if (!connection?.client || !workspaceId || !state.value?.session) {
+      entitlementsLoading.value = false
       entitlements.value = null
       entitlementsError.value = null
       return
@@ -153,12 +126,14 @@ function createCloudStorageSettings() {
     entitlementsLoading.value = true
     entitlementsError.value = null
     try {
-      entitlements.value = await connection.client.getWorkspaceEntitlements(workspaceId)
+      const result = await connection.client.getWorkspaceEntitlements(workspaceId)
+      if (isCurrent()) entitlements.value = result
     } catch (error) {
+      if (!isCurrent()) return
       entitlements.value = null
       entitlementsError.value = error instanceof Error ? error.message : String(error)
     } finally {
-      entitlementsLoading.value = false
+      if (isCurrent()) entitlementsLoading.value = false
     }
   }
 
@@ -166,11 +141,13 @@ function createCloudStorageSettings() {
     const normalized = normalizeCloudServerURL(serverURL.value)
     serverURL.value = normalized
     writeStoragePreference(PROVIDER_ID, SERVER_URL_FIELD, normalized)
-    state.value = await cloudConnectionService.refresh(normalized)
+    const connection = await cloudConnectionService.refresh(normalized)
+    if (serverURL.value !== normalized) return
+    state.value = connection
     await refreshEntitlements()
   }
 
-  async function signIn(provider: CloudSocialProvider): Promise<void> {
+  async function signIn(): Promise<void> {
     const discovery = state.value?.discovery
     const profile = activeCloudConnectionProfile()
     if (!discovery || !profile) throw new Error('Connect to an OpenPencil Cloud server first')
@@ -178,23 +155,18 @@ function createCloudStorageSettings() {
       await startDesktopDeviceAuth(discovery, profile)
       return
     }
-    const { signInToCloud } = await import('@open-pencil/cloud/client')
-    await signInToCloud(discovery, provider)
+    globalThis.location.assign(cloudSignInURL(discovery, globalThis.location.href))
   }
 
   async function reauthenticate(): Promise<void> {
     const discovery = state.value?.discovery
     const profile = activeCloudConnectionProfile()
     if (!discovery || !profile) throw new Error('Connect to an OpenPencil Cloud server first')
-    cancelDeviceAuth(profile.id)
+    await deviceAuthorization.cancelAndWait(profile.id)
     await appCredentialServices.manager.clear(
       credentialRef('openpencil-cloud', 'session', profile.id)
     )
-    const providers = discovery.authentication.socialProviders
-    if (providers.length === 0 && !IS_TAURI) {
-      throw new Error('This instance does not offer a browser sign-in provider')
-    }
-    await signIn(providers[0] ?? 'google')
+    await signIn()
   }
 
   async function reconnect(): Promise<void> {
@@ -204,16 +176,14 @@ function createCloudStorageSettings() {
   async function signOut(): Promise<void> {
     const discovery = state.value?.discovery
     const profile = activeCloudConnectionProfile()
-    if (!discovery) return
-    if (profile) {
-      cancelDeviceAuth(profile.id)
-      await appCredentialServices.manager.clear(
-        credentialRef('openpencil-cloud', 'session', profile.id)
-      )
-    }
-    const { signOutFromCloud } = await import('@open-pencil/cloud/client')
-    await signOutFromCloud(discovery)
-    state.value = await cloudConnectionService.refresh(serverURL.value)
+    if (!discovery || !profile) return
+    const targetURL = profile.serverURL
+    await deviceAuthorization.cancelAndWait(profile.id)
+    await signOutCloudSession(discovery, profile.id)
+    cloudConnectionService.disconnect(targetURL)
+    const connection = await cloudConnectionService.refresh(targetURL)
+    if (activeCloudConnectionProfile()?.id !== profile.id) return
+    state.value = connection
     await refreshEntitlements()
   }
 

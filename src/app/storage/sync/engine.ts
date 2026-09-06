@@ -9,14 +9,16 @@ import {
 import {
   activeStorageProviderID,
   createActiveStorageAdapter,
-  createStorageAdapter,
   storageCredentialStatuses,
   storagePreferencesComplete,
   storageProviderRegistry,
   type StorageAdapter,
   type StorageProviderID
 } from '@/app/integrations/storage'
-import { listCloudConnectionProfiles } from '@/app/integrations/storage/cloud/profiles'
+import {
+  createBoundStorageAdapter,
+  StorageBindingUnavailableError
+} from '@/app/integrations/storage/binding'
 import { evictLocalFigCache } from '@/app/storage/cache-eviction'
 import { remoteDocumentId } from '@/app/storage/id'
 import { getLocalCanvasStore } from '@/app/storage/local-store'
@@ -44,6 +46,7 @@ let onlineBound = false
 
 function isOnline(): boolean {
   if (typeof navigator === 'undefined') return true
+  if (!('onLine' in navigator)) return true
   return navigator.onLine
 }
 
@@ -80,7 +83,8 @@ export type StorageSyncFailureKind = 'blocked' | 'conflict' | 'permanent' | 'tra
 
 export function storageSyncFailureKind(error: unknown): StorageSyncFailureKind {
   if (error instanceof CloudAPIError && error.code === 'revision_conflict') return 'conflict'
-  if (error instanceof StorageSyncBlockedError) return 'blocked'
+  if (error instanceof StorageSyncBlockedError || error instanceof StorageBindingUnavailableError)
+    return 'blocked'
   return isPermanentError(error) ? 'permanent' : 'transient'
 }
 
@@ -88,7 +92,8 @@ async function putCanvasJob(
   job: OutboxJob,
   providerID: StorageProviderID,
   meta: LocalCanvasMeta,
-  adapter: StorageAdapter
+  adapter: StorageAdapter,
+  remoteId: string
 ): Promise<void> {
   if (meta.revision > job.revision || !meta.hasFig) return
   const store = getLocalCanvasStore()
@@ -99,7 +104,7 @@ async function putCanvasJob(
   try {
     syncResult =
       (await adapter.putDocument(
-        job.canvasId,
+        remoteId,
         fig,
         { name: meta.name, updatedAt: meta.updatedAt },
         ({ transferredBytes, totalBytes }) => {
@@ -123,7 +128,11 @@ async function putCanvasJob(
     { expectedRevision: job.revision }
   )
   await evictLocalFigCache(new Set([job.canvasId]))
-  emitStorageWorkspaceEvent({ providerId: providerID, documentId: job.canvasId, kind: 'synced' })
+  emitStorageWorkspaceEvent({
+    providerId: providerID,
+    documentId: job.canvasId,
+    kind: 'synced'
+  })
 }
 
 function adapterForMeta(
@@ -134,14 +143,11 @@ function adapterForMeta(
   if (!meta?.connectionId || !meta.workspaceId || !meta.documentId) {
     throw new StorageSyncBlockedError('Cloud document identity is incomplete')
   }
-  const profile = listCloudConnectionProfiles().find(
-    (candidate) => candidate.id === meta.connectionId
-  )
-  if (!profile) throw new StorageSyncBlockedError('Cloud connection is unavailable')
-  const workspaceId = meta.workspaceId
-  return createStorageAdapter(providerID, {
-    'server-url': profile.serverURL,
-    'workspace-id': workspaceId
+  return createBoundStorageAdapter({
+    providerId: 'openpencil-cloud',
+    connectionId: meta.connectionId,
+    workspaceId: meta.workspaceId,
+    documentId: meta.documentId
   })
 }
 
@@ -149,7 +155,7 @@ async function runJob(job: OutboxJob): Promise<void> {
   const store = getLocalCanvasStore()
   const meta = await store.getMeta(job.canvasId)
   const providerID = meta?.providerId ?? activeStorageProviderID.value
-  if (!storagePreferencesComplete(providerID)) {
+  if (providerID !== 'openpencil-cloud' && !storagePreferencesComplete(providerID)) {
     throw new StorageSyncBlockedError('Storage is not configured')
   }
   const provider = storageProviderRegistry.get(providerID)
@@ -172,7 +178,10 @@ async function runJob(job: OutboxJob): Promise<void> {
     // Keep the tombstoned row: reconcile purges it once the remote listing
     // confirms the object is gone. Removing it here opened a race where a
     // concurrent reconcile re-seeded the canvas from a stale remote listing.
-    await store.updateMeta(job.canvasId, { syncStatus: 'synced', lastSyncError: null })
+    await store.updateMeta(job.canvasId, {
+      syncStatus: 'synced',
+      lastSyncError: null
+    })
     return
   }
 
@@ -182,7 +191,7 @@ async function runJob(job: OutboxJob): Promise<void> {
   }
 
   if (job.type === 'putCanvas') {
-    await putCanvasJob({ ...job, canvasId: remoteId }, providerID, meta, adapter)
+    await putCanvasJob(job, providerID, meta, adapter, remoteId)
     return
   }
 
@@ -274,7 +283,9 @@ async function pumpOnce(): Promise<void> {
       } else {
         // Keep a record without touching syncStatus so the stale remote
         // thumbnail is at least diagnosable.
-        await getLocalCanvasStore().updateMeta(job.canvasId, { lastSyncError: message })
+        await getLocalCanvasStore().updateMeta(job.canvasId, {
+          lastSyncError: message
+        })
       }
       if (job.type === 'putThumb') {
         await outbox.remove(job.id)

@@ -47,6 +47,8 @@ The editor exposes a typed nanoevents emitter. Event names/payloads live in `Edi
 
 Important invariant: all selection mutations in core go through `ctx.setSelectedIds()` and all tool changes go through `ctx.setActiveTool()` so events fire consistently. App-layer code should use editor actions such as `clearSelection()`, `select()`, or `setTool()` — never direct `state.selectedIds =` or `state.activeTool =` assignments.
 
+The app-level Cloud integration lives under `src/app/cloud/`: `instances/` owns persisted profiles, `sessions/` owns discovery/connection state and credential resolution, `settings/` adapts those services for UI, and `documents/` owns Cloud document entry flows. Storage-provider code under `src/app/integrations/storage/cloud/` owns only adapter/transport/upload behavior. Resolve bound documents through `src/app/integrations/storage/binding.ts`; selection must never retarget existing documents. Profile selection is authoritative; provider preferences remain a compatibility projection for the existing storage UI.
+
 The app editor session (`src/app/editor/session/create.ts`) is a Vue wrapper around core: it creates reactive state, calls `createEditor()`, and assembles app-specific document I/O, autosave, export, vector edit, pen resume, flashes, profiler, and mobile clipboard. Tabs live in `src/app/tabs/`; active editor access lives in `src/app/editor/active-store/`.
 
 Headless SDK fields compose variable/token binding through `BindingProvider` and the `BindableValue` primitives in `packages/vue/src/controls/binding-provider/` and `packages/vue/src/primitives/BindableValue/`. Keep numeric interaction in `NumberField`; providers own binding lookup, mutation, and undo batching.

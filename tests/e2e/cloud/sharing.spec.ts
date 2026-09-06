@@ -399,6 +399,7 @@ test.describe('Cloud sharing browser journey', () => {
     await expect(authenticatedRecipient.getByText('Cloud sharing fixture')).toBeVisible()
     await authenticatedRecipient.getByRole('button', { name: 'Accept invitation' }).click()
     await expect(authenticatedRecipient).toHaveURL(/\/$/)
+    await expect(authenticatedRecipient.getByTestId('canvas-area')).toBeVisible()
     expect(
       await authenticatedRecipient.evaluate(
         async ({ serverURL, invitationId, token }) =>

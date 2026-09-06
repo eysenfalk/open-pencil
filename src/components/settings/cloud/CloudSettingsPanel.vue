@@ -8,9 +8,9 @@ import {
   cloudConnectionWorkSummary,
   hasPendingCloudConnectionWork,
   type CloudConnectionWorkSummary
-} from '@/app/integrations/storage/cloud/pending-work'
-import { cloudConnectionPresentation } from '@/app/integrations/storage/cloud/presentation'
-import { useCloudStorageSettings } from '@/app/integrations/storage/cloud/settings'
+} from '@/app/cloud/instances/pending-work'
+import { cloudConnectionPresentation } from '@/app/cloud/settings/presentation'
+import { useCloudStorageSettings } from '@/app/cloud/settings/use'
 import { settingsDialogOpen } from '@/app/settings/dialog'
 import { toast } from '@/app/shell/ui'
 import { openExternalURL } from '@/app/tauri/opener'
@@ -121,9 +121,7 @@ async function runPrimaryAction() {
         await cloud.reconnect()
         break
       case 'sign-in': {
-        const provider = cloud.state.value?.discovery?.authentication.socialProviders[0]
-        if (!provider) throw new Error('This instance does not offer a sign-in provider')
-        await cloud.signIn(provider)
+        await cloud.signIn()
         break
       }
     }
@@ -225,17 +223,6 @@ async function openWorkspace() {
         </span>
         <button type="button" :class="quiet.base" @click="cloud.signOut">
           {{ cloudMessages.signOut }}
-        </button>
-      </div>
-      <div v-else-if="cloud.state.value" class="mt-3 flex gap-2">
-        <button
-          v-for="provider in cloud.state.value.discovery?.authentication.socialProviders ?? []"
-          :key="provider"
-          type="button"
-          :class="secondary.base"
-          @click="cloud.signIn(provider)"
-        >
-          {{ cloudMessages.signInWith({ provider }) }}
         </button>
       </div>
 

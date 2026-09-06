@@ -120,15 +120,24 @@ async function openRecent(document: RecentDocument): Promise<void> {
       await openFileFromPath(document.path)
       return
     }
-    const storageDocument = storageDocuments.value.find(
-      (candidate) => candidate.id === document.documentId
-    )
+    if (document.providerId === 'openpencil-cloud' && !document.binding) {
+      throw new Error(
+        'This recent Cloud document has no saved instance identity. Open it from its workspace.'
+      )
+    }
+    const storageDocument = document.binding
+      ? undefined
+      : storageDocuments.value.find((candidate) => candidate.id === document.documentId)
     await openStorageDocumentInNewTab(
       storageDocument ?? {
         id: document.documentId,
         name: document.name,
         updatedAt: document.updatedAt
-      }
+      },
+      document.binding ??
+        (document.providerId !== 'openpencil-cloud'
+          ? { providerId: document.providerId, documentId: document.documentId }
+          : undefined)
     )
   } catch (error) {
     forgetRecentDocument(document.id)

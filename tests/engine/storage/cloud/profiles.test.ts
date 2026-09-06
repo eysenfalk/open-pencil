@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
   cloudConnectionWorkSummary,
   hasPendingCloudConnectionWork
-} from '@/app/integrations/storage/cloud/pending-work'
+} from '@/app/cloud/instances/pending-work'
 import {
   activeCloudConnectionProfile,
   connectCloudProfile,
@@ -11,7 +11,7 @@ import {
   listCloudConnectionProfiles,
   selectCloudConnectionProfile,
   updateCloudConnectionWorkspace
-} from '@/app/integrations/storage/cloud/profiles'
+} from '@/app/cloud/instances/profiles'
 import {
   createMemoryLocalCanvasStore,
   resetLocalCanvasStoreForTests

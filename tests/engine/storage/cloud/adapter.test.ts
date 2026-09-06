@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test'
 
 import type { CloudFetch } from '@open-pencil/cloud/client'
 
+import { createCloudConnectionService } from '@/app/cloud/sessions/connection'
 import { createCloudStorageAdapter } from '@/app/integrations/storage/cloud/adapter'
-import { createCloudConnectionService } from '@/app/integrations/storage/cloud/connection'
 
 function dependencies(fetch: CloudFetch) {
   return {

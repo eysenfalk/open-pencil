@@ -17,7 +17,7 @@ import {
   getCloudCollaborationTicket,
   loadCloudSharedCollaborationTicket,
   loadCloudSharedDocument
-} from '@/app/collab/cloud-sharing'
+} from '@/app/cloud/documents/sharing'
 import { connectAutomation } from '@/app/automation/bridge/server'
 import { spawnMCPIfNeeded } from '@/app/automation/mcp/spawn'
 import { isTauri } from '@/app/tauri/env'

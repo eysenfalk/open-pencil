@@ -1,8 +1,8 @@
 import { useLocalStorage } from '@vueuse/core'
 import { base64url } from 'jose'
 
-import { writeStoragePreferenceUnchecked } from '../preference-store'
-import { normalizeCloudServerURL } from './connection'
+import { normalizeCloudServerURL } from '@/app/cloud/sessions/connection'
+import { writeStoragePreferenceUnchecked } from '@/app/integrations/storage/preference-store'
 
 export const OFFICIAL_OPENPENCIL_CLOUD_URL = 'https://cloud.openpencil.dev'
 const PROVIDER_ID = 'openpencil-cloud'
@@ -46,13 +46,14 @@ export async function connectCloudProfile(input: {
   kind: CloudConnectionKind
   serverURL?: string
   label?: string
+  activate?: boolean
 }): Promise<CloudConnectionProfile> {
   const serverURL = normalizeCloudServerURL(
     input.kind === 'official' ? OFFICIAL_OPENPENCIL_CLOUD_URL : (input.serverURL ?? '')
   )
   const existing = profiles.value.find((profile) => profile.serverURL === serverURL)
   if (existing) {
-    selectCloudConnectionProfile(existing.id)
+    if (input.activate !== false) selectCloudConnectionProfile(existing.id)
     return existing
   }
   const profile: CloudConnectionProfile = {
@@ -63,7 +64,7 @@ export async function connectCloudProfile(input: {
     selectedWorkspaceId: null
   }
   profiles.value = [...profiles.value, profile]
-  selectCloudConnectionProfile(profile.id)
+  if (input.activate !== false) selectCloudConnectionProfile(profile.id)
   return profile
 }
 

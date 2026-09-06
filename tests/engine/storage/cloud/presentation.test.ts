@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { cloudConnectionPresentation } from '@/app/integrations/storage/cloud/presentation'
+import { cloudConnectionPresentation } from '@/app/cloud/settings/presentation'
 
 describe('Cloud connection presentation', () => {
   test.each([

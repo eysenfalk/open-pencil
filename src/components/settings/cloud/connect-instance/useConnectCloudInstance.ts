@@ -3,8 +3,8 @@ import { computed, ref } from 'vue'
 import { discoverCloud } from '@open-pencil/cloud/client'
 import type { CloudDiscovery } from '@open-pencil/cloud/contract'
 
-import { normalizeCloudServerURL } from '@/app/integrations/storage/cloud/connection'
-import { OFFICIAL_OPENPENCIL_CLOUD_URL } from '@/app/integrations/storage/cloud/profiles'
+import { OFFICIAL_OPENPENCIL_CLOUD_URL } from '@/app/cloud/instances/profiles'
+import { normalizeCloudServerURL } from '@/app/cloud/sessions/connection'
 
 export type ConnectInstanceStep = 'choose-kind' | 'enter-url' | 'discovering' | 'ready' | 'error'
 export type ConnectInstanceKind = 'official' | 'self-hosted'

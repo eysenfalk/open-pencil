@@ -1,4 +1,4 @@
-import type { CloudConnectionStatus } from './connection'
+import type { CloudConnectionStatus } from '@/app/cloud/sessions/connection'
 
 export type CloudConnectionPrimaryAction =
   | 'open-workspace'

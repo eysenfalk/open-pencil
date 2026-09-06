@@ -21,7 +21,7 @@ import {
   revokeCloudShare,
   updateCloudGrant,
   updateCloudShare
-} from '@/app/collab/cloud-sharing'
+} from '@/app/cloud/documents/sharing'
 import type { EditorStore } from '@/app/editor/session'
 import { toast } from '@/app/shell/ui'
 

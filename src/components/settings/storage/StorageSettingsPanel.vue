@@ -14,7 +14,7 @@ import {
   storageProviderRegistry,
   writeStoragePreference
 } from '@/app/integrations/storage'
-import { useCloudStorageSettings } from '@/app/integrations/storage/cloud/settings'
+import { useCloudStorageSettings } from '@/app/cloud/settings/use'
 import { appCredentialServices } from '@/app/settings/credentials/app'
 import { settingsDialogOpen } from '@/app/settings/dialog'
 import { credentialRef } from '@/app/settings/credentials/reference'
@@ -142,9 +142,9 @@ async function connectCloud(): Promise<void> {
   }
 }
 
-async function signInCloud(providerID: 'apple' | 'google'): Promise<void> {
+async function signInCloud(): Promise<void> {
   try {
-    await cloudSettings.signIn(providerID)
+    await cloudSettings.signIn()
   } catch (error) {
     toast.error(error instanceof Error ? error.message : String(error))
   }
@@ -301,14 +301,11 @@ onMounted(() => void refreshStatuses())
         </div>
         <div v-else class="flex gap-2">
           <button
-            v-for="socialProvider in cloudSettings.state.value.discovery?.authentication
-              .socialProviders ?? []"
-            :key="socialProvider"
             type="button"
             class="flex-1 rounded bg-hover px-2 py-1.5 text-[10px] capitalize text-surface hover:bg-active"
-            @click="signInCloud(socialProvider)"
+            @click="signInCloud"
           >
-            Sign in with {{ socialProvider }}
+            Sign in
           </button>
         </div>
         <AppSelect

@@ -1,11 +1,12 @@
+import type { CloudConnectionService } from '@/app/cloud/sessions/connection'
+import { cloudConnectionService } from '@/app/cloud/sessions/service'
+
 import type {
   StorageAdapter,
   StorageDocumentMetadata,
   StorageProviderRuntime,
   StorageTransferProgress
 } from '../types'
-import type { CloudConnectionService } from './connection'
-import { cloudConnectionService } from './service'
 import { createCloudTransport, type CloudTransport } from './transport'
 import { uploadCloudObject } from './upload'
 

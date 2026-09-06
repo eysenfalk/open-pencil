@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue'
 import { useCloudMessages, useCommonMessages } from '@open-pencil/vue'
 
-import { OFFICIAL_OPENPENCIL_CLOUD_URL } from '@/app/integrations/storage/cloud/profiles'
+import { OFFICIAL_OPENPENCIL_CLOUD_URL } from '@/app/cloud/instances/profiles'
 import AppInput from '@/components/ui/AppInput.vue'
 import { useButtonUI } from '@/components/ui/button'
 import {

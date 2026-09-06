@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   createCloudConnectionService,
   normalizeCloudServerURL
-} from '@/app/integrations/storage/cloud/connection'
+} from '@/app/cloud/sessions/connection'
 
 const workspaceId = '11111111-1111-4111-8111-111111111111'
 

@@ -5,7 +5,7 @@ import { useHead } from '@unhead/vue'
 import { useRoute } from 'vue-router'
 
 import { exposeCollaborationActions } from '@/app/browser-bridge'
-import { getCloudCollaborationTicket } from '@/app/collab/cloud-sharing'
+import { getCloudCollaborationTicket } from '@/app/cloud/documents/sharing'
 import { appRuntimeConfig } from '@/app/runtime/config'
 import { startMCPRuntime, stopMCPRuntime } from '@/app/automation/mcp/runtime'
 import { COLLAB_KEY, useCollab } from '@/app/collab/use'

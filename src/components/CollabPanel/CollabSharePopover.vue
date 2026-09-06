@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { tv } from 'tailwind-variants'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 
-import { isCloudDocument } from '@/app/collab/cloud-sharing'
+import { isCloudDocument } from '@/app/cloud/documents/sharing'
 import { useActiveEditorStoreRef } from '@/app/editor/active-store'
 import CloudShareDialog from '@/components/collab/cloud-share-dialog/CloudShareDialog.vue'
 import ConnectedRoom from '@/components/CollabPanel/ConnectedRoom.vue'

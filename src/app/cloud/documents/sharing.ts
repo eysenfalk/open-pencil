@@ -1,3 +1,4 @@
+import { cloudShareURL } from '@open-pencil/cloud/client'
 import type {
   CreateDocumentInvitationInput,
   CreateDocumentShareInput,
@@ -8,12 +9,12 @@ import type {
   UpdateDocumentShareInput
 } from '@open-pencil/cloud/contract'
 
+import { cloudConnectionService } from '@/app/cloud/sessions/service'
 import type { EditorStore } from '@/app/editor/session'
-import { cloudConnectionService, readStoragePreferences } from '@/app/integrations/storage'
-import { listCloudConnectionProfiles } from '@/app/integrations/storage/cloud/profiles'
+
+import { cloudDocumentClient } from './client'
 
 const PROVIDER_ID = 'openpencil-cloud'
-const SERVER_URL_FIELD = 'server-url'
 
 export type CloudShareCapability = {
   share: DocumentShare
@@ -28,15 +29,7 @@ function cloudBinding(store: EditorStore) {
 async function cloudClient(store: EditorStore) {
   const binding = cloudBinding(store)
   if (!binding) throw new Error('This document is not stored in OpenPencil Cloud')
-  const profile = binding.connectionId
-    ? listCloudConnectionProfiles().find((candidate) => candidate.id === binding.connectionId)
-    : null
-  const source = readStoragePreferences(PROVIDER_ID)
-  const serverURL = profile?.serverURL ?? source[SERVER_URL_FIELD]
-  if (!serverURL) throw new Error('OpenPencil Cloud server is not configured')
-  const connection = await cloudConnectionService.connect(serverURL)
-  if (!connection.client) throw new Error('OpenPencil Cloud is not connected')
-  return { binding, client: connection.client, serverURL }
+  return cloudDocumentClient(binding)
 }
 
 export function isCloudDocument(store: EditorStore): boolean {
@@ -102,22 +95,16 @@ export async function loadCloudShareState(store: EditorStore) {
   return { access, shares, grants, invitations, binding, client }
 }
 
-function capabilityURL(serverURL: string, shareId: string, secret: string): string {
-  return new URL(
-    `/cloud/share/${shareId}?server=${encodeURIComponent(serverURL)}#${secret}`,
-    window.location.origin
-  ).href
-}
-
 export async function createCloudShare(
   store: EditorStore,
   input: CreateDocumentShareInput
 ): Promise<CloudShareCapability> {
-  const { binding, client, serverURL } = await cloudClient(store)
+  const { binding, client, serverURL, discovery } = await cloudClient(store)
+  if (!discovery?.appURL) throw new Error('This instance does not advertise a public editor URL')
   const capability = await client.createDocumentShare(binding.documentId, input)
   return {
     share: capability.share,
-    url: capabilityURL(serverURL, capability.share.id, capability.secret)
+    url: cloudShareURL(discovery, serverURL, capability.share.id, capability.secret)
   }
 }
 
@@ -134,11 +121,12 @@ export async function rotateCloudShare(
   store: EditorStore,
   shareId: string
 ): Promise<CloudShareCapability> {
-  const { binding, client, serverURL } = await cloudClient(store)
+  const { binding, client, serverURL, discovery } = await cloudClient(store)
+  if (!discovery?.appURL) throw new Error('This instance does not advertise a public editor URL')
   const capability = await client.rotateDocumentShare(binding.documentId, shareId)
   return {
     share: capability.share,
-    url: capabilityURL(serverURL, capability.share.id, capability.secret)
+    url: cloudShareURL(discovery, serverURL, capability.share.id, capability.secret)
   }
 }
 

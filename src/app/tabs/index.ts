@@ -9,7 +9,7 @@ import { computeAllLayouts } from '@open-pencil/core/layout'
 import type { SceneGraph } from '@open-pencil/scene-graph'
 
 import { setOpenPencilStore } from '@/app/browser-bridge'
-import { getCloudDocumentAccess } from '@/app/collab/cloud-sharing'
+import { getCloudDocumentAccess } from '@/app/cloud/documents/sharing'
 import { describeDiagnosticError, recordStorageFailure } from '@/app/diagnostics'
 import { readFigDocument } from '@/app/document/io/fig'
 import { applyImportedDocument } from '@/app/document/io/imported-document'
@@ -22,11 +22,13 @@ import type { EditorStore } from '@/app/editor/session'
 import { notificationMessages } from '@/app/i18n/notifications'
 import {
   activeStorageProviderID,
-  createActiveStorageAdapter,
   type StorageDocument,
   type StorageDocumentBinding
 } from '@/app/integrations/storage'
-import { activeCloudConnectionProfile } from '@/app/integrations/storage/cloud/profiles'
+import {
+  createBoundStorageAdapter,
+  selectedStorageBinding
+} from '@/app/integrations/storage/binding'
 import {
   cacheRecentFileThumbnail,
   loadCachedRecentFileThumbnail,
@@ -34,14 +36,10 @@ import {
 } from '@/app/recent-files'
 import { toast } from '@/app/shell/ui'
 import { storageCanvasId } from '@/app/storage/id'
-import { getLocalCanvasStore } from '@/app/storage/local-store'
-import {
-  seedStorageCanvasFromRemote,
-  type SeedStorageCanvasOptions
-} from '@/app/storage/sync/persist'
 import { emitActiveDocumentOpened } from '@/app/tabs/events'
 import { createFileOpenCoordinator } from '@/app/tabs/open/coordinator'
 import { findTabByFileIdentity } from '@/app/tabs/open/identity'
+import { readStorageDocument } from '@/app/tabs/open/storage'
 
 export type TabKind = 'home' | 'document'
 
@@ -313,40 +311,26 @@ type StorageOpenIdentity = {
 }
 
 function storageOpenIdentity(providerId: string, documentId: string): StorageOpenIdentity {
-  if (providerId !== 'openpencil-cloud') {
-    return {
-      providerId,
-      canvasId: storageCanvasId({ providerId, documentId }),
-      binding: { providerId, documentId }
-    }
-  }
-  const profile = activeCloudConnectionProfile()
-  if (!profile?.selectedWorkspaceId)
-    throw new Error('OpenPencil Cloud connection and workspace are required')
-  return {
-    providerId,
-    canvasId: storageCanvasId({
-      providerId: 'openpencil-cloud',
-      connectionId: profile.id,
-      documentId
-    }),
-    binding: {
-      providerId: 'openpencil-cloud',
-      connectionId: profile.id,
-      workspaceId: profile.selectedWorkspaceId,
-      documentId
-    }
-  }
+  const binding = selectedStorageBinding(documentId, providerId)
+  return { providerId, canvasId: storageCanvasId(binding), binding }
 }
 
-export async function openStorageDocumentInNewTab(document: StorageDocument): Promise<void> {
-  const identity = storageOpenIdentity(activeStorageProviderID.value, document.id)
+export async function openStorageDocumentInNewTab(
+  document: StorageDocument,
+  binding?: StorageDocumentBinding
+): Promise<void> {
+  const identity: StorageOpenIdentity = binding
+    ? { providerId: binding.providerId, canvasId: storageCanvasId(binding), binding }
+    : storageOpenIdentity(activeStorageProviderID.value, document.id)
+  if (identity.binding.documentId !== document.id)
+    throw new Error('Document binding does not match the requested document')
+  const adapter = createBoundStorageAdapter(identity.binding)
   const connectionId =
     identity.binding.providerId === 'openpencil-cloud' ? identity.binding.connectionId : undefined
   const existing = findStorageTab(identity.providerId, document.id, connectionId)
   if (existing) {
     switchTab(existing.id)
-    rememberRecentStorageDocument(identity.providerId, document.id, document.name)
+    rememberRecentStorageDocument(identity.providerId, document.id, document.name, identity.binding)
     return
   }
 
@@ -358,52 +342,7 @@ export async function openStorageDocumentInNewTab(document: StorageDocument): Pr
   })
   let succeeded = false
   try {
-    load.update({ phase: 'reading', detail: document.name })
-    const local = getLocalCanvasStore()
-    const localMetadata = await local.getMeta(identity.canvasId)
-    load.signal.throwIfAborted()
-    const localBytes = localMetadata?.hasFig ? await local.readFig(identity.canvasId) : null
-    load.signal.throwIfAborted()
-    const localIsAuthoritative =
-      localMetadata?.syncStatus !== 'synced' ||
-      !document.metadataAuthoritative ||
-      localMetadata.updatedAt >= document.updatedAt
-    let bytes = localBytes && localIsAuthoritative ? localBytes : null
-
-    if (!bytes) {
-      bytes = await createActiveStorageAdapter(identity.providerId).getDocument(
-        document.id,
-        (progress) =>
-          load.update({
-            phase: 'reading',
-            detail: document.name,
-            completed: progress.transferredBytes,
-            total: progress.totalBytes,
-            unit: 'bytes'
-          }),
-        load.signal
-      )
-      const seedOptions: SeedStorageCanvasOptions = {
-        providerId: identity.providerId,
-        documentId: document.id,
-        canvasId: identity.canvasId,
-        name: document.name,
-        updatedAt: document.updatedAt,
-        figBytes: bytes
-      }
-      if (identity.binding.providerId === 'openpencil-cloud') {
-        seedOptions.connectionId = identity.binding.connectionId
-        seedOptions.workspaceId = identity.binding.workspaceId
-      }
-      await seedStorageCanvasFromRemote(seedOptions)
-      load.signal.throwIfAborted()
-    }
-
-    const fileBytes = new Uint8Array(bytes.byteLength)
-    fileBytes.set(bytes)
-    const file = new File([fileBytes.buffer], `${document.name}.fig`, {
-      type: 'application/octet-stream'
-    })
+    const file = await readStorageDocument(document, identity.binding, adapter, load)
     load.update({ phase: 'decoding', detail: document.name })
     const imported = await readFigForTab(file, load.signal)
     await showImportedGraph(
@@ -419,7 +358,7 @@ export async function openStorageDocumentInNewTab(document: StorageDocument): Pr
       },
       load
     )
-    rememberRecentStorageDocument(identity.providerId, document.id, document.name)
+    rememberRecentStorageDocument(identity.providerId, document.id, document.name, identity.binding)
     emitActiveDocumentOpened(store)
     succeeded = true
   } catch (error) {

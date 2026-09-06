@@ -4,8 +4,10 @@ import { useCloudMessages } from '@open-pencil/vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import type { InvitationPreview } from '@open-pencil/cloud/contract'
-import { createCloudAPIClient, discoverCloud, signInToCloud } from '@open-pencil/cloud/client'
+import { createCloudAPIClient, discoverCloud, cloudSignInURL } from '@open-pencil/cloud/client'
 
+import { resolveInvitedCloudDocument } from '@/app/cloud/documents/invitations'
+import { openStorageDocumentInNewTab } from '@/app/tabs'
 import AppButton from '@/components/ui/AppButton.vue'
 
 const cloudMessages = useCloudMessages()
@@ -17,7 +19,9 @@ const loading = ref(true)
 const accepting = ref(false)
 const serverURL = ref('')
 const token = ref('')
-const invitationId = typeof route.params.invitationId === 'string' ? route.params.invitationId : ''
+const invitationId = ref(
+  typeof route.params.invitationId === 'string' ? route.params.invitationId : ''
+)
 
 async function client() {
   const discovery = await discoverCloud(serverURL.value)
@@ -29,6 +33,7 @@ async function resumeContinuation() {
   if (!continuation || !serverURL.value) return false
   const cloud = await client()
   const restored = await cloud.client.consumeInvitationContinuation(continuation)
+  invitationId.value = restored.invitationId
   token.value = restored.token
   invitation.value = await cloud.client.previewDocumentInvitation(restored.invitationId, {
     token: restored.token
@@ -47,13 +52,16 @@ async function load() {
   history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}`)
   serverURL.value = server
   try {
-    if (await resumeContinuation()) return
+    if (await resumeContinuation()) {
+      loading.value = false
+      return
+    }
   } catch {
     error.value = 'This invitation is invalid or no longer available.'
     loading.value = false
     return
   }
-  if (!invitationId || !server || !secret) {
+  if (!invitationId.value || !server || !secret) {
     error.value = 'This invitation is invalid or no longer available.'
     loading.value = false
     return
@@ -61,7 +69,9 @@ async function load() {
   token.value = secret
   try {
     const cloud = await client()
-    invitation.value = await cloud.client.previewDocumentInvitation(invitationId, { token: secret })
+    invitation.value = await cloud.client.previewDocumentInvitation(invitationId.value, {
+      token: secret
+    })
   } catch {
     error.value = 'This invitation is invalid or no longer available.'
   } finally {
@@ -75,20 +85,27 @@ async function accept() {
     const cloud = await client()
     const session = await cloud.client.getSession()
     if (!session) {
-      const provider = cloud.discovery.authentication.socialProviders[0]
-      if (!provider) throw new Error('No sign-in provider is configured')
       const continuation = await cloud.client.createInvitationContinuation({
-        invitationId,
+        invitationId: invitationId.value,
         token: token.value
       })
       const callback = new URL(window.location.href)
       callback.hash = ''
       callback.searchParams.set('continuation', continuation.id)
-      await signInToCloud(cloud.discovery, provider, { callbackURL: callback.href })
+      globalThis.location.assign(cloudSignInURL(cloud.discovery, callback.href))
       return
     }
-    await cloud.client.acceptDocumentInvitation(invitationId, { token: token.value })
-    await router.replace('/storage')
+    const grant = await cloud.client.acceptDocumentInvitation(invitationId.value, {
+      token: token.value
+    })
+    const target = await resolveInvitedCloudDocument(
+      serverURL.value,
+      grant.documentId,
+      cloud.client
+    )
+    // Mount the workspace canvas before opening: renderer preparation waits for it.
+    await router.replace('/')
+    await openStorageDocumentInNewTab(target.document, target.binding)
   } catch {
     error.value = 'This invitation is invalid or belongs to another account.'
   } finally {
