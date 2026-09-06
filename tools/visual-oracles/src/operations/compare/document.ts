@@ -4,10 +4,9 @@ import { mkdirSync } from 'node:fs'
 import { basename, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 
+import { readVisualOracleManifest, type VisualOracleTarget } from '#visual/manifest'
 import { chromium, type Page } from '@playwright/test'
 import { $ } from 'bun'
-
-import { readVisualOracleManifest, type VisualOracleTarget } from '../document/manifest'
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,

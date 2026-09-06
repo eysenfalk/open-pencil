@@ -43,6 +43,9 @@ export interface InstanceOccurrence {
   propertyClaims: InstancePropertyClaim[]
   bindingClaims: BoundPropertyClaim[]
   derivedSize?: Vector
+  /** Whether this expansion supplies a name rather than only inheriting it. */
+  hasOwnName: boolean
+  defaultInstanceName?: string
 }
 
 export interface InstancePathDiagnostic {
@@ -189,7 +192,17 @@ function replaceOccurrence(target: InstanceOccurrence, replacement: InstanceOccu
   if (target.mainComponentId === null) throw new Error('Swap target is not an instance')
   target.mainComponentId = replacement.mainComponentId ?? replacement.sourceId
   const { guid, parentIndex, type, name, transform, size } = target.properties
-  target.properties = { ...replacement.properties, guid, parentIndex, type, name, transform, size }
+  target.properties = {
+    ...replacement.properties,
+    guid,
+    parentIndex,
+    type,
+    transform,
+    size,
+    ...(target.hasOwnName
+      ? { name }
+      : { name: replacement.defaultInstanceName ?? replacement.properties.name })
+  }
   target.children = replacement.children
   target.propertyClaims = replacement.propertyClaims
   target.bindingClaims = replacement.bindingClaims
@@ -406,6 +419,26 @@ function interpretRoot(
     replaceOccurrence(target, replacement)
     adopt(target, replacement)
   }
+  const inheritsInstanceName = (
+    symbolId: GUID | undefined,
+    base: InstanceOccurrence | null
+  ): boolean => {
+    if (!symbolId || !base) return false
+    return sources.get(guidToString(symbolId))?.type === 'INSTANCE' && base.hasOwnName
+  }
+  const defaultInstanceName = (base: InstanceOccurrence | null): string | undefined => {
+    if (!base) return undefined
+    const source = sources.get(base.sourceId)
+    if (source?.type === 'INSTANCE') return base.properties.name
+    const parentGuid = source?.parentIndex?.guid
+    const parent = parentGuid ? sources.get(guidToString(parentGuid)) : undefined
+    return parent?.isStateGroup === true ? parent.name : base.properties.name
+  }
+  const bindingChangesComponent = (raw: NodeChange, bound: NodeChange): boolean => {
+    const original = raw.symbolData?.symbolID
+    const replacement = bound.symbolData?.symbolID
+    return !!original && !!replacement && !sameGuid(original, replacement)
+  }
   const expand = (
     id: string,
     bindings: readonly PropertyBinding[] = [],
@@ -432,6 +465,7 @@ function interpretRoot(
         sourceId: id,
         propertyClaims: structuredClone(base?.propertyClaims ?? []),
         bindingClaims,
+        hasOwnName: inheritsInstanceName(symbolId, base),
         overrideKey: readOverrideKey(source.overrideKey),
         mainComponentId: base ? (base.mainComponentId ?? base.sourceId) : null,
         properties: { ...base?.properties, ...structuredClone(source) },
@@ -442,9 +476,13 @@ function interpretRoot(
             return expand(guidToString(child.guid), childBindings)
           })
       }
+      if (base && bindingChangesComponent(raw, source)) {
+        occurrence.properties.name = defaultInstanceName(base)
+      }
       for (const claim of occurrence.propertyClaims) {
         indexClaim(resolveOccurrencePath(occurrence, claim.path), claim)
       }
+      occurrence.defaultInstanceName = defaultInstanceName(occurrence)
       const overrides = symbolOverrides(source)
       const targetFor = (path: readonly GUID[]): InstanceOccurrence => {
         let target = occurrence
@@ -482,6 +520,7 @@ function interpretRoot(
         retireDescendants
       )
       applyPropertyOverrides(overrides, targetFor, options, (target, props, path) => {
+        if ('name' in props) target.hasOwnName = true
         recordPatch(target, props)
         const claim: InstancePropertyClaim = {
           declaredBy: id,

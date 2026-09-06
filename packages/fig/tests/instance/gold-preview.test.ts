@@ -56,6 +56,9 @@ test('Gold Preview input resolves badge visibility and distinct avatar swaps lik
   }
   expect(named(named(frame, 'Leading'), 'Avatar').properties.visible).toBe(false)
   expect(named(named(frame, 'Trailing'), 'Avatar').properties.visible).toBe(false)
+  expect(
+    named(frame, 'Trailing').children.some((node) => node.properties.name === 'chevron-down')
+  ).toBe(true)
   expect(diagnostics.length).toBeGreaterThan(0)
 
   const graph = new SceneGraph()

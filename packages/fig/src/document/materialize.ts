@@ -39,6 +39,10 @@ export function materializeDocument(
   for (const page of graph.getPages()) graph.deleteNode(page.id)
   const sources = new Map<string, string>()
   const components = new Map<string, MaterializedComponentOccurrence>()
+  const savedSizeNodes = new Set<string>()
+  const rememberDerivedSizes = (nodes: ReadonlyMap<InstanceOccurrence, SceneNode>): void => {
+    for (const [occurrence, node] of nodes) if (occurrence.derivedSize) savedSizeNodes.add(node.id)
+  }
   const componentIds = new Map<string, string>()
   const createShells = (occurrence: InstanceOccurrence, parentId: string): void => {
     if (occurrence.mainComponentId !== null) return
@@ -71,6 +75,7 @@ export function materializeDocument(
       mapInstanceSourceChildren(item.occurrence, components),
       existingNodes
     )
+    rememberDerivedSizes(materialized.nodes)
     linkInstanceSourceChildren(item.occurrence, materialized, components)
     components.set(item.sourceId, { occurrence: item.occurrence, materialized })
     componentIds.set(item.sourceId, materialized.root.id)
@@ -91,6 +96,7 @@ export function materializeDocument(
           blobs,
           mapInstanceSourceChildren(child, components)
         )
+        rememberDerivedSizes(materialized.nodes)
         linkInstanceSourceChildren(child, materialized, components)
         sources.set(child.sourceId, materialized.root.id)
       } else if (child.properties.type !== 'SYMBOL') populateInstances(child)
@@ -102,6 +108,6 @@ export function materializeDocument(
     if (parent) parent.childIds = ordered
   }
   for (const page of pages) populateInstances(page)
-  graph.preserveSourceMetadataDuring(() => applyDocumentLayoutBindings(graph))
+  graph.preserveSourceMetadataDuring(() => applyDocumentLayoutBindings(graph, savedSizeNodes))
   return { graph, sources }
 }

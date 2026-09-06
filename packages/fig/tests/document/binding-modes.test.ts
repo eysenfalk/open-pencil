@@ -1,10 +1,28 @@
 import { expect, test } from 'bun:test'
 
+import { applyDocumentLayoutBindings } from '#fig/document/layout-bindings'
 import { materializeDocument } from '#fig/document/materialize'
 
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
+import { SceneGraph } from '@open-pencil/scene-graph'
 
 const guid = (localID: number) => ({ sessionID: 1, localID })
+
+test('saved occurrence dimensions win over unscaled bindings without blocking spacing', () => {
+  const graph = new SceneGraph()
+  const collection = graph.createCollection('Sizes')
+  const variable = graph.createVariable('Size', 'FLOAT', collection.id, 16)
+  const node = graph.createNode('FRAME', graph.getPages()[0].id, {
+    width: 14.253506660461426,
+    height: 14.253506660461426,
+    itemSpacing: 15,
+    boundVariables: { width: variable.id, height: variable.id, itemSpacing: variable.id }
+  })
+  applyDocumentLayoutBindings(graph, new Set([node.id]))
+  expect(node.width).toBe(14.253506660461426)
+  expect(node.height).toBe(14.253506660461426)
+  expect(node.itemSpacing).toBe(16)
+})
 
 test('repeated instances resolve nested bindings using inherited collection modes', () => {
   const changes = [

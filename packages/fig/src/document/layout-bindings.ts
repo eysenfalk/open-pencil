@@ -3,9 +3,13 @@ import type { SceneGraph } from '@open-pencil/scene-graph'
 import { resolvedNumericBindingUpdate } from '../node-change/variable-bindings'
 
 /** Apply resolved scalar layout values after hierarchy and explicit modes exist. */
-export function applyDocumentLayoutBindings(graph: SceneGraph): void {
+export function applyDocumentLayoutBindings(
+  graph: SceneGraph,
+  savedSizeNodes: ReadonlySet<string> = new Set()
+): void {
   for (const node of graph.getAllNodes()) {
     for (const [field, variableId] of Object.entries(node.boundVariables)) {
+      if ((field === 'width' || field === 'height') && savedSizeNodes.has(node.id)) continue
       const variable = graph.variables.get(variableId)
       if (!variable) continue
       const modeId = graph.getNodeVariableModeId(node.id, variable.collectionId)

@@ -1,3 +1,4 @@
+export { materializeDocument, type DocumentAssemblyOptions } from './document/materialize'
 export {
   compressFigDataSync,
   parseFigBuffer,

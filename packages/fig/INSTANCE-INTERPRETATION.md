@@ -108,6 +108,30 @@ Full layout recomputation still differs from Figma; a saved-geometry match must 
 presented as proof of editable-layout correctness. World-space coordinates are required for
 cross-application comparisons, and hidden-node geometry must be reported separately.
 
+## Name provenance
+
+Figma-authored save captures in `tests/instance/fixtures/name-provenance.json` distinguish
+stored names from explicit root-targeted name overrides. Explicit equal-to-default names
+remain protected. An untouched swapped instance adopts the replacement component's name,
+or its component set's name for a variant. Binding-driven swaps need the same default-name
+resolution as explicit structural swaps. Initial stored names are not globally rewritten.
+
+## Reproducing the property oracle
+
+```sh
+bun tools/visual-oracles/src/operations/compare/interpreted-document.ts \
+  --file tests/fixtures/gold-preview.fig --node 1:3461 \
+  --figma-key NmoHzskYNiSKOaRX14bMdw --output /tmp/gold-oracle
+```
+
+Run from the repository root with the matching Figma document open. The command checks file
+identity, captures hidden descendants, compares world-space positions, and writes captures,
+differences, and diagnostics. It exits nonzero for any difference. This compares selected
+properties, not paint, pixels, or successful layout recomputation.
+
+The latest Gold comparison has 887 nodes on both sides, no structural/semantic/visible-geometry
+differences, and 335 hidden-geometry differences. Unresolved-path callbacks remain unclassified.
+
 ## Remaining acceptance gaps
 
 - Complete ownership and precedence of provenance through inheritance, swaps, and re-expansion.
