@@ -39,6 +39,7 @@
 
 ### Fixed
 
+- Preserve edited instance text, including cleared labels, when saving and reopening `.fig` files.
 - Prevent the stock photo tool from replacing text, lines, structural layers, or containers with content while supporting closed shape geometry.
 - Preserve explicit text alignment metadata on imported Figma vectors across save and reload.
 
