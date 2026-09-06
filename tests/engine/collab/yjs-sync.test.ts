@@ -332,19 +332,16 @@ describe('collab yjs-sync', () => {
     await withSyncedStores(async ({ hostStore, peerStore, hostSync }) => {
       const page = firstPage(hostStore.graph)
       const node = hostStore.graph.createNode('RECTANGLE', page.id)
-      let rejectSwitch: (error: Error) => void = () => {}
-      const pending = new Promise<void>((_resolve, reject) => {
-        rejectSwitch = reject
-      })
+      const { promise: pending, reject: rejectSwitch } = Promise.withResolvers<undefined>()
       const switchPage = spyOn(peerStore, 'switchPage').mockReturnValue(pending)
-      const log = spyOn(console, 'error').mockImplementation(() => {})
+      const log = spyOn(console, 'error').mockImplementation(() => undefined)
       try {
         hostSync.syncAllNodesToYjs()
         hostSync.syncNodeToYjs(node.id)
         expect(switchPage).toHaveBeenCalledTimes(1)
         const error = new Error('Page preparation failed')
         rejectSwitch(error)
-        await pending.catch(() => {})
+        await pending.catch(() => undefined)
         await Promise.resolve()
         expect(log).toHaveBeenCalledWith('[Collab] Failed to switch to a synced page:', error)
       } finally {
