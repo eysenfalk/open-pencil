@@ -44,6 +44,26 @@ test('materializes separate occurrence nodes with direct component identities an
   for (const node of result.nodes.values()) expect(node.source.id).toBeNull()
 })
 
+test('materialization does not share editable paint payloads with interpreted occurrences', () => {
+  const { occurrence, graph, page, components } = setup()
+  occurrence.properties.fillPaints = [
+    {
+      type: 'SOLID',
+      color: { r: 1, g: 0, b: 0, a: 1 },
+      opacity: 1,
+      visible: true
+    }
+  ]
+  const before = structuredClone(occurrence)
+  const first = materializeInstance(graph, page.id, occurrence, components)
+  const second = materializeInstance(graph, page.id, occurrence, components)
+  const fill = first.root.fills[0]
+  if (!fill?.color) throw new Error('Missing materialized fill')
+  fill.color.r = 0
+  expect(second.root.fills[0].color?.r).toBe(1)
+  expect(occurrence).toEqual(before)
+})
+
 test('rejects an invalid late descendant without creating a partial tree', () => {
   const { occurrence, graph, page, components } = setup()
   occurrence.children[2].properties.type = 'DOCUMENT'

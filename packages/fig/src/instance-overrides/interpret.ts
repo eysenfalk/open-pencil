@@ -1,11 +1,13 @@
 import type { GUID, NodeChange } from '@open-pencil/kiwi/fig/codec'
 import { guidToString } from '@open-pencil/kiwi/fig/guid'
+import type { Vector } from '@open-pencil/scene-graph'
 
 import {
   fieldsBoundByAssignments,
   bindSourceProperties,
   componentBindings,
   instanceBindings,
+  type BoundPropertyClaim,
   type PropertyBinding
 } from './interpret-bindings'
 import type {
@@ -22,6 +24,14 @@ function readOverrideKey(value: unknown): GUID | undefined {
   return { sessionID: value.sessionID, localID: value.localID }
 }
 
+/** An explicit claim keeps the complete path relative to its owning occurrence. */
+export interface InstancePropertyClaim {
+  /** Source record declaring the claim; preserved when inherited by another occurrence. */
+  declaredBy: string
+  path: readonly GUID[]
+  properties: Record<string, unknown>
+}
+
 /** One occurrence, not a shared source node or a SceneGraph editing clone. */
 export interface InstanceOccurrence {
   readonly sourceId: string
@@ -29,6 +39,10 @@ export interface InstanceOccurrence {
   mainComponentId: string | null
   properties: NodeChange
   children: InstanceOccurrence[]
+  /** Explicit property records declared by this occurrence's source. */
+  propertyClaims: InstancePropertyClaim[]
+  bindingClaims: BoundPropertyClaim[]
+  derivedSize?: Vector
 }
 
 export interface InstancePathDiagnostic {
@@ -86,11 +100,27 @@ function findSegment(root: InstanceOccurrence, guid: GUID): InstanceOccurrence {
   return matches[0]
 }
 
+export function resolveOccurrencePath(
+  owner: InstanceOccurrence,
+  path: readonly GUID[]
+): InstanceOccurrence {
+  let target = owner
+  for (const [index, guid] of path.entries()) {
+    if (index === 0 && sameGuid(owner.properties.symbolData?.symbolID, guid)) continue
+    target = findSegment(target, guid)
+  }
+  return target
+}
+
 function applyPropertyOverrides(
   overrides: readonly SymbolOverride[],
   targetFor: (path: readonly GUID[]) => InstanceOccurrence,
   options: InterpretInstanceOptions,
-  record: (target: InstanceOccurrence, props: Record<string, unknown>) => void
+  record: (
+    target: InstanceOccurrence,
+    props: Record<string, unknown>,
+    path: readonly GUID[]
+  ) => void
 ): void {
   for (const override of overrides) {
     const {
@@ -109,7 +139,7 @@ function applyPropertyOverrides(
       continue
     }
     Object.assign(target.properties, structuredClone(props))
-    record(target, props)
+    record(target, props, guidPath.guids)
   }
 }
 
@@ -139,7 +169,10 @@ function applyDerivedBounds(
       target.properties.lineHeight = structuredClone(entry.lineHeight)
     if (entry.letterSpacing !== undefined)
       target.properties.letterSpacing = structuredClone(entry.letterSpacing)
-    if (entry.size) target.properties.size = structuredClone(entry.size)
+    if (entry.size) {
+      target.properties.size = structuredClone(entry.size)
+      target.derivedSize = structuredClone(entry.size)
+    }
     if (entry.transform) target.properties.transform = structuredClone(entry.transform)
     const { fillGeometry, strokeGeometry, vectorData } = structuredClone(entry)
     if (fillGeometry) target.properties.fillGeometry = fillGeometry
@@ -158,6 +191,8 @@ function replaceOccurrence(target: InstanceOccurrence, replacement: InstanceOccu
   const { guid, parentIndex, type, name, transform, size } = target.properties
   target.properties = { ...replacement.properties, guid, parentIndex, type, name, transform, size }
   target.children = replacement.children
+  target.propertyClaims = replacement.propertyClaims
+  target.bindingClaims = replacement.bindingClaims
 }
 
 function samePath(a: readonly GUID[], b: readonly GUID[]): boolean {
@@ -205,7 +240,8 @@ function applyStructuralOverrides(
     target: InstanceOccurrence,
     assignments: readonly ComponentPropAssignment[]
   ) => void,
-  adopt: (target: InstanceOccurrence, replacement: InstanceOccurrence) => void
+  adopt: (target: InstanceOccurrence, replacement: InstanceOccurrence) => void,
+  retireDescendants: (target: InstanceOccurrence) => void
 ): void {
   const structural = groupedStructuralOverrides(overrides)
   for (const override of structural) {
@@ -218,6 +254,7 @@ function applyStructuralOverrides(
         [],
         override.componentPropAssignments
       )
+      retireDescendants(target)
       replaceOccurrence(target, replacement)
       adopt(target, replacement)
     } else {
@@ -246,6 +283,19 @@ export function interpretInstance(
   instanceId: string,
   options: InterpretInstanceOptions = {}
 ): InstanceOccurrence {
+  return createOccurrenceInterpreter(changes).instance(instanceId, options)
+}
+
+export function interpretComponent(
+  changes: readonly NodeChange[],
+  componentId: string,
+  options: InterpretInstanceOptions = {}
+): InstanceOccurrence {
+  return createOccurrenceInterpreter(changes).component(componentId, options)
+}
+
+/** One source index per document; evaluation state remains local to each call. */
+export function createOccurrenceInterpreter(changes: readonly NodeChange[]) {
   const sources = new Map<string, NodeChange>()
   const children = new Map<string, NodeChange[]>()
   for (const change of changes) {
@@ -268,7 +318,36 @@ export function interpretInstance(
     })
   }
 
+  return {
+    instance: (id: string, options: InterpretInstanceOptions = {}) =>
+      interpretRoot(sources, children, id, 'INSTANCE', options),
+    component: (id: string, options: InterpretInstanceOptions = {}) =>
+      interpretRoot(sources, children, id, 'SYMBOL', options),
+    page: (id: string, options: InterpretInstanceOptions = {}) =>
+      interpretRoot(sources, children, id, 'CANVAS', options)
+  }
+}
+
+function interpretRoot(
+  sources: ReadonlyMap<string, NodeChange>,
+  children: ReadonlyMap<string, readonly NodeChange[]>,
+  instanceId: string,
+  expectedType: 'INSTANCE' | 'SYMBOL' | 'CANVAS',
+  options: InterpretInstanceOptions
+): InstanceOccurrence {
   const expanding = new Set<string>()
+  const claimsByTarget = new WeakMap<InstanceOccurrence, InstancePropertyClaim[]>()
+  const indexClaim = (target: InstanceOccurrence, claim: InstancePropertyClaim): void => {
+    const claims = claimsByTarget.get(target) ?? []
+    claims.push(claim)
+    claimsByTarget.set(target, claims)
+  }
+  const retireDescendants = (target: InstanceOccurrence): void => {
+    for (const child of target.children) {
+      for (const claim of claimsByTarget.get(child) ?? []) claim.properties = {}
+      retireDescendants(child)
+    }
+  }
   const propertyPatches = new WeakMap<InstanceOccurrence, Record<string, unknown>>()
   const recordPatch = (target: InstanceOccurrence, props: Record<string, unknown>): void => {
     propertyPatches.set(target, { ...propertyPatches.get(target), ...structuredClone(props) })
@@ -279,9 +358,15 @@ export function interpretInstance(
     assignments: readonly ComponentPropAssignment[],
     descendBindings = true
   ): void => {
+    const boundFields = fieldsBoundByAssignments(next.properties, assignments)
+    for (const claim of claimsByTarget.get(previous) ?? []) {
+      claim.properties = Object.fromEntries(
+        Object.entries(claim.properties).filter(([field]) => !boundFields.has(field))
+      )
+      indexClaim(next, claim)
+    }
     const patch = propertyPatches.get(previous)
     if (patch) {
-      const boundFields = fieldsBoundByAssignments(next.properties, assignments)
       const retained = Object.fromEntries(
         Object.entries(patch).filter(([field]) => !boundFields.has(field))
       )
@@ -329,7 +414,8 @@ export function interpretInstance(
     if (expanding.has(id)) throw new Error(`Cyclic component expansion at ${id}`)
     const raw = sources.get(id)
     if (!raw) throw new Error(`Missing source node ${id}`)
-    const source = bindSourceProperties(raw, bindings)
+    const bindingClaims: BoundPropertyClaim[] = []
+    const source = bindSourceProperties(raw, bindings, (claim) => bindingClaims.push(claim))
     expanding.add(id)
     try {
       const symbolId = source.symbolData?.symbolID
@@ -344,6 +430,8 @@ export function interpretInstance(
       const childBindings = bindingContext(source, bindings, assignments)
       const occurrence: InstanceOccurrence = {
         sourceId: id,
+        propertyClaims: structuredClone(base?.propertyClaims ?? []),
+        bindingClaims,
         overrideKey: readOverrideKey(source.overrideKey),
         mainComponentId: base ? (base.mainComponentId ?? base.sourceId) : null,
         properties: { ...base?.properties, ...structuredClone(source) },
@@ -353,6 +441,9 @@ export function interpretInstance(
             if (!child.guid) throw new Error('Indexed child has no GUID')
             return expand(guidToString(child.guid), childBindings)
           })
+      }
+      for (const claim of occurrence.propertyClaims) {
+        indexClaim(resolveOccurrencePath(occurrence, claim.path), claim)
       }
       const overrides = symbolOverrides(source)
       const targetFor = (path: readonly GUID[]): InstanceOccurrence => {
@@ -387,9 +478,19 @@ export function interpretInstance(
         targetFor,
         expand,
         reconfigure,
-        adopt
+        adopt,
+        retireDescendants
       )
-      applyPropertyOverrides(overrides, targetFor, options, recordPatch)
+      applyPropertyOverrides(overrides, targetFor, options, (target, props, path) => {
+        recordPatch(target, props)
+        const claim: InstancePropertyClaim = {
+          declaredBy: id,
+          path: structuredClone(path),
+          properties: structuredClone(props)
+        }
+        occurrence.propertyClaims.push(claim)
+        indexClaim(target, claim)
+      })
       applyDerivedBounds(source, occurrence, targetFor, options)
       recipes.set(occurrence, (next) => expand(id, bindings, [...assignments, ...next]))
       return occurrence
@@ -397,6 +498,17 @@ export function interpretInstance(
       expanding.delete(id)
     }
   }
-  if (sources.get(instanceId)?.type !== 'INSTANCE') throw new Error('Expected an instance source')
-  return expand(instanceId)
+  if (sources.get(instanceId)?.type !== expectedType) {
+    const kind = { INSTANCE: 'an instance', SYMBOL: 'a component', CANVAS: 'a page' }[expectedType]
+    throw new Error(`Expected ${kind} source`)
+  }
+  const result = expand(instanceId)
+  const pruneClaims = (node: InstanceOccurrence): void => {
+    node.propertyClaims = node.propertyClaims.filter(
+      (claim) => Object.keys(claim.properties).length > 0
+    )
+    for (const child of node.children) pruneClaims(child)
+  }
+  pruneClaims(result)
+  return result
 }

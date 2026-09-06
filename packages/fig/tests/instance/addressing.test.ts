@@ -57,6 +57,27 @@ describe('instance addressing contracts', () => {
     expect(result.children[1].children[0].properties.textData?.characters).toBe('Second')
   })
 
+  test('retains explicit equal-to-default claims without treating inherited fields as overrides', () => {
+    const input = fixture()
+    const placedSource = input.find((node) => node.guid === placed)
+    if (!placedSource?.symbolData) throw new Error('Missing placed source')
+    placedSource.symbolData.symbolOverrides = [
+      { guidPath: { guids: [second, alias] }, textData: { characters: 'Default' } }
+    ]
+    const result = interpretInstance(input, '4:1')
+    expect(result.children[0].propertyClaims).toEqual([])
+    expect(result.propertyClaims).toEqual([
+      {
+        declaredBy: '4:1',
+        path: [second, alias],
+        properties: { textData: { characters: 'Default' } }
+      }
+    ])
+    expect(result.children[0].children[0].properties.textData?.characters).toBe(
+      result.children[1].children[0].properties.textData?.characters
+    )
+  })
+
   test('occurrence payloads and subsequent interpretations share no mutable data', () => {
     const input = fixture()
     const result = interpretInstance(input, '4:1')

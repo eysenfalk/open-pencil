@@ -75,9 +75,17 @@ test('a newer binding wins over an intermediate patch to the same text field', (
       componentPropAssignments: [{ defID: guid(91), value: { textValue: 'Outer assignment' } }]
     }
   ])
-  const label = interpretInstance(changes, '1:52').children[0].children[1].children[0].children[0]
+  const result = interpretInstance(changes, '1:52')
+  const label = result.children[0].children[1].children[0].children[0]
+  expect(result.children[0].propertyClaims).toEqual([
+    { declaredBy: '1:30', path: [guid(22), guid(3)], properties: { opacity: 0.4 } }
+  ])
   expect(label.properties.textData?.characters).toBe('Outer assignment')
   expect(label.properties.opacity).toBe(0.4)
+  const independent = interpretInstance(changes, '1:30')
+  expect(independent.propertyClaims[0]?.properties.textData).toEqual({
+    characters: 'Intermediate edit'
+  })
 })
 
 test('retains an intermediate explicit descendant override when an outer binding changes', () => {
@@ -105,6 +113,10 @@ test('retains an intermediate explicit descendant override when an outer binding
     }
   ])
   const result = interpretInstance(changes, '1:52')
+  const owner = result.children[0]
+  expect(owner.propertyClaims).toEqual([
+    { declaredBy: '1:30', path: [guid(22), guid(3)], properties: { opacity: 0.4 } }
+  ])
   const label = result.children[0].children[1].children[0].children[0]
   expect(label.properties.textData?.characters).toBe('Outer text')
   expect(label.properties.opacity).toBe(0.4)
