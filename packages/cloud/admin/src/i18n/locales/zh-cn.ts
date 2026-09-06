@@ -44,6 +44,11 @@ export default {
     sharingDescription: '可靠保留设计的每个已保存版本。'
   },
   auth: {
+    deviceTitle: '授权 OpenPencil 桌面应用',
+    deviceDescription: '仅当此代码与正在连接的桌面应用中的代码一致时才批准。',
+    deviceApproved: '桌面应用已授权。你可以返回 OpenPencil。',
+    deviceDenied: '桌面应用授权已拒绝。',
+    deviceUnavailable: '此授权无效、已过期或不再可用。',
     signIn: '登录',
     signUp: '注册',
     signInTitle: '欢迎回来',

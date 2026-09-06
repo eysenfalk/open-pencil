@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { cloudRedirectPath } from '@open-pencil/cloud/client'
 import { AppButton } from '@open-pencil/ui'
 import { useQuery } from '@tanstack/vue-query'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { queryClient } from '#admin/app/query/client'
+import { cloudQueryKeys } from '#admin/app/query/keys'
 import { discoveryQueryOptions } from '#admin/app/query/options'
 import AsyncError from '#admin/components/feedback/AsyncError.vue'
 import PublicShell from '#admin/components/layout/PublicShell.vue'
@@ -18,10 +21,7 @@ const route = useRoute()
 const router = useRouter()
 const callback = useOAuthCallback()
 const discovery = useQuery(discoveryQueryOptions())
-const safeRedirect = computed(() => {
-  const value = route.query.redirect
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : '/'
-})
+const safeRedirect = computed(() => cloudRedirectPath(route.query.redirect))
 const signIn = useSignIn(
   () => discovery.data.value,
   intent,
@@ -39,12 +39,16 @@ const hasSocialProviders = computed(() =>
   Boolean(discovery.data.value?.authentication.socialProviders.length)
 )
 
-function completeAuthentication(): void {
-  void router.replace(safeRedirect.value)
+async function completeAuthentication(): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: cloudQueryKeys.account })
+  await router.replace(safeRedirect.value)
 }
 
 function showVerification(email: string): void {
-  void router.replace({ name: 'verify-email', query: { state: 'sent', email } })
+  void router.replace({
+    name: 'verify-email',
+    query: { state: 'sent', email, redirect: safeRedirect.value }
+  })
 }
 
 function providerLabel(provider: 'google' | 'apple'): string {
@@ -67,6 +71,7 @@ function providerLabel(provider: 'google' | 'apple'): string {
           class="mt-5"
           :discovery="discovery.data.value"
           :intent="intent"
+          :redirect="safeRedirect"
           @verified="completeAuthentication"
           @verification-required="showVerification"
         />
@@ -109,7 +114,7 @@ function providerLabel(provider: 'google' | 'apple'): string {
         <p class="mb-0 mt-5 text-center text-xs text-muted">
           {{ isSignUp ? messages.auth.value.haveAccount : messages.auth.value.needAccount }}
           <RouterLink
-            :to="isSignUp ? { name: 'sign-in' } : { name: 'sign-up' }"
+            :to="{ name: isSignUp ? 'sign-in' : 'sign-up', query: { redirect: safeRedirect } }"
             class="font-medium text-surface underline underline-offset-4"
           >
             {{ isSignUp ? messages.auth.value.signIn : messages.auth.value.signUp }}

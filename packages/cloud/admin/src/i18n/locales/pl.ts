@@ -45,6 +45,12 @@ export default {
     sharingDescription: 'Zachowaj każdą zapisaną wersję projektu.'
   },
   auth: {
+    deviceTitle: 'Autoryzuj aplikację OpenPencil',
+    deviceDescription:
+      'Zatwierdź tylko wtedy, gdy ten kod jest zgodny z kodem w podłączanej aplikacji.',
+    deviceApproved: 'Aplikacja została autoryzowana. Możesz wrócić do OpenPencil.',
+    deviceDenied: 'Odmówiono autoryzacji aplikacji.',
+    deviceUnavailable: 'Ta autoryzacja jest nieprawidłowa, wygasła lub jest już niedostępna.',
     signIn: 'Zaloguj się',
     signUp: 'Utwórz konto',
     signInTitle: 'Witaj ponownie',

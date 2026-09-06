@@ -6,9 +6,11 @@ import { computed, ref } from 'vue'
 import { discoveryQueryOptions } from '#admin/app/query/options'
 import PublicShell from '#admin/components/layout/PublicShell.vue'
 import { useCloudI18n } from '#admin/i18n/use'
+import { useAuthContinuation } from './useAuthContinuation'
 import { createCredentialAuthService } from './credentials/service'
 import TurnstileChallenge from './credentials/TurnstileChallenge.vue'
 
+const { signInRoute, callbackURL } = useAuthContinuation()
 const messages = useCloudI18n()
 const discovery = useQuery(discoveryQueryOptions())
 const email = ref('')
@@ -26,7 +28,7 @@ async function submit(): Promise<void> {
   try {
     await createCredentialAuthService(instance, {
       captchaResponse: captchaResponse.value || undefined
-    }).requestPasswordReset(email.value, new URL('/auth/reset-password', location.origin).href)
+    }).requestPasswordReset(email.value, callbackURL('/auth/reset-password'))
     sent.value = true
   } catch {
     error.value = true
@@ -76,7 +78,7 @@ async function submit(): Promise<void> {
           </AppButton>
         </form>
         <RouterLink
-          to="/auth/sign-in"
+          :to="signInRoute"
           class="mt-5 block text-center text-xs text-muted underline underline-offset-4"
         >
           {{ messages.auth.value.backToSignIn }}

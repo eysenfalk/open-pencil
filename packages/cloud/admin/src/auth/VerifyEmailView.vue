@@ -7,8 +7,10 @@ import { useRoute } from 'vue-router'
 import { discoveryQueryOptions } from '#admin/app/query/options'
 import PublicShell from '#admin/components/layout/PublicShell.vue'
 import { useCloudI18n } from '#admin/i18n/use'
+import { useAuthContinuation } from './useAuthContinuation'
 import { createCredentialAuthService } from './credentials/service'
 
+const { signInRoute, callbackURL } = useAuthContinuation()
 const messages = useCloudI18n()
 const route = useRoute()
 const discovery = useQuery(discoveryQueryOptions())
@@ -26,7 +28,7 @@ async function resend(): Promise<void> {
   try {
     await createCredentialAuthService(instance).resendVerification(
       email.value,
-      new URL('/auth/verify-email?state=verified', location.origin).href
+      callbackURL('/auth/verify-email?state=verified')
     )
     resent.value = true
   } catch {
@@ -69,7 +71,7 @@ async function resend(): Promise<void> {
           </AppButton>
         </template>
         <RouterLink
-          to="/auth/sign-in"
+          :to="signInRoute"
           class="mt-5 block text-xs text-muted underline underline-offset-4"
         >
           {{ messages.auth.value.backToSignIn }}

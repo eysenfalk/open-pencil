@@ -45,6 +45,12 @@ export default {
     sharingDescription: 'Conserva un registro fiable de cada versión guardada.'
   },
   auth: {
+    deviceTitle: 'Autorizar OpenPencil de escritorio',
+    deviceDescription:
+      'Aprueba solo si este código coincide con la aplicación de escritorio que estás conectando.',
+    deviceApproved: 'Aplicación de escritorio autorizada. Puedes volver a OpenPencil.',
+    deviceDenied: 'Autorización de escritorio denegada.',
+    deviceUnavailable: 'Esta autorización no es válida, ha caducado o ya no está disponible.',
     signIn: 'Iniciar sesión',
     signUp: 'Registrarse',
     signInTitle: 'Te damos la bienvenida',

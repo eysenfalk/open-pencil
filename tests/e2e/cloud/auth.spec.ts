@@ -36,7 +36,7 @@ test.describe('Cloud credential authentication', () => {
     await page.goto(firstHTTPSLink(verification))
     await expect(page.getByRole('heading', { name: 'Email verified' })).toBeVisible()
     await page.goto(`${cloudURL}/app`)
-    await expect(page).toHaveURL(`${cloudURL}/account/pending`)
+    await expect(page).toHaveURL(`${cloudURL}/account/pending?redirect=/app`)
     await expect(page.getByRole('main').getByRole('button', { name: 'Sign out' })).toBeVisible()
 
     const signOutNavigation = page.waitForURL(`${cloudURL}/`)
@@ -68,6 +68,6 @@ test.describe('Cloud credential authentication', () => {
     await expect(page.getByRole('alert')).toContainText('Invalid email or password.')
     await page.locator('input[name="password"]').fill(replacementPassword)
     await page.getByRole('button', { name: 'Sign in', exact: true }).last().click()
-    await expect(page).toHaveURL(`${cloudURL}/account/pending`)
+    await expect(page).toHaveURL(`${cloudURL}/account/pending?redirect=/app`)
   })
 })

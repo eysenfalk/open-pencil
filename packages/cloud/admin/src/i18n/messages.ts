@@ -46,6 +46,11 @@ export const publicMessageDefaults = {
 } as const
 
 export const authMessageDefaults = {
+  deviceTitle: 'Authorize OpenPencil desktop',
+  deviceDescription: 'Only approve if this code matches the desktop app you are connecting.',
+  deviceApproved: 'Desktop authorized. You can return to OpenPencil.',
+  deviceDenied: 'Desktop authorization denied.',
+  deviceUnavailable: 'This authorization is invalid, expired, or no longer available.',
   signIn: 'Sign in',
   signUp: 'Sign up',
   signInTitle: 'Welcome back',

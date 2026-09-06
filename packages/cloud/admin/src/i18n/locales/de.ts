@@ -46,6 +46,12 @@ export default {
     sharingDescription: 'Bewahren Sie jede gespeicherte Version Ihres Designs zuverlässig auf.'
   },
   auth: {
+    deviceTitle: 'OpenPencil Desktop autorisieren',
+    deviceDescription:
+      'Nur genehmigen, wenn dieser Code mit der Desktop-App übereinstimmt, die Sie verbinden.',
+    deviceApproved: 'Desktop autorisiert. Sie können zu OpenPencil zurückkehren.',
+    deviceDenied: 'Desktop-Autorisierung abgelehnt.',
+    deviceUnavailable: 'Diese Autorisierung ist ungültig, abgelaufen oder nicht mehr verfügbar.',
     signIn: 'Anmelden',
     signUp: 'Registrieren',
     signInTitle: 'Willkommen zurück',

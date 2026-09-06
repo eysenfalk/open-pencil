@@ -25,6 +25,20 @@ import {
 
 const routes = [
   {
+    path: '/auth/return',
+    name: 'editor-return',
+    component: () => import('#admin/auth/EditorReturnView.vue'),
+    beforeEnter: requireActiveAccount,
+    meta: { headKey: 'signIn', indexing: 'private' }
+  },
+  {
+    path: '/cloud/device',
+    name: 'device-approval',
+    component: () => import('#admin/auth/device/DeviceApprovalView.vue'),
+    beforeEnter: requireActiveAccount,
+    meta: { headKey: 'signIn', indexing: 'private' }
+  },
+  {
     path: '/',
     name: 'home',
     component: HomeView,
@@ -63,7 +77,6 @@ const routes = [
     path: '/auth/two-factor',
     name: 'mfa-challenge',
     component: MFAChallengeView,
-    beforeEnter: requireActiveAccount,
     meta: { headKey: 'mfaChallenge', indexing: 'private' }
   },
   {

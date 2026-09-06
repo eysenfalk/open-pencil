@@ -46,6 +46,12 @@ export default {
     sharingDescription: 'Conservez chaque version enregistrée de votre création.'
   },
   auth: {
+    deviceTitle: 'Autoriser OpenPencil pour ordinateur',
+    deviceDescription:
+      'Approuvez uniquement si ce code correspond à celui de l’application que vous connectez.',
+    deviceApproved: 'Application autorisée. Vous pouvez revenir à OpenPencil.',
+    deviceDenied: 'Autorisation de l’application refusée.',
+    deviceUnavailable: 'Cette autorisation est invalide, expirée ou indisponible.',
     signIn: 'Se connecter',
     signUp: 'Créer un compte',
     signInTitle: 'Heureux de vous revoir',

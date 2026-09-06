@@ -45,6 +45,11 @@ export default {
     sharingDescription: '保存したすべてのバージョンを確実に残します。'
   },
   auth: {
+    deviceTitle: 'OpenPencilデスクトップを認証',
+    deviceDescription: '接続するデスクトップアプリのコードと一致する場合のみ承認してください。',
+    deviceApproved: 'デスクトップが認証されました。OpenPencilに戻れます。',
+    deviceDenied: 'デスクトップの認証が拒否されました。',
+    deviceUnavailable: 'この認証は無効、有効期限切れ、または利用できません。',
     signIn: 'サインイン',
     signUp: 'アカウントを作成',
     signInTitle: 'おかえりなさい',

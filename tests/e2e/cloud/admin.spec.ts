@@ -57,7 +57,7 @@ test.describe('Cloud account and administration', () => {
       page.getByRole('heading', { name: 'Your account is awaiting approval' })
     ).toBeVisible()
     await page.goto(`${serverURL}/app`)
-    await expect(page).toHaveURL(`${serverURL}/account/pending`)
+    await expect(page).toHaveURL(`${serverURL}/account/pending?redirect=/app`)
   })
 
   test('redirects unauthenticated admin visitors through normal sign in', async ({ page }) => {

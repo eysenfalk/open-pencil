@@ -8,9 +8,14 @@ import { useCloudI18n } from '#admin/i18n/use'
 import { createCredentialAuthService, CredentialAuthError } from './service'
 import TurnstileChallenge from './TurnstileChallenge.vue'
 
-const { discovery, intent } = defineProps<{
+const {
+  discovery,
+  intent,
+  redirect = '/app'
+} = defineProps<{
   discovery: CloudDiscovery
   intent: 'sign-in' | 'sign-up'
+  redirect?: string
 }>()
 const emit = defineEmits<{ verified: []; verificationRequired: [email: string] }>()
 const messages = useCloudI18n()
@@ -55,7 +60,10 @@ async function submit(): Promise<void> {
         name: name.value,
         email: email.value,
         password: password.value,
-        callbackURL: new URL('/auth/verify-email?state=verified', location.origin).href
+        callbackURL: new URL(
+          `/auth/verify-email?state=verified&redirect=${encodeURIComponent(redirect)}`,
+          location.origin
+        ).href
       })
       emit('verificationRequired', email.value)
     } else {
@@ -65,7 +73,7 @@ async function submit(): Promise<void> {
         rememberMe: rememberMe.value
       })
       if ('twoFactorRequired' in result && result.twoFactorRequired) {
-        globalThis.location.assign('/auth/two-factor')
+        globalThis.location.assign(`/auth/two-factor?redirect=${encodeURIComponent(redirect)}`)
         return
       }
       emit('verified')
@@ -147,7 +155,7 @@ async function submit(): Promise<void> {
     </AppButton>
     <RouterLink
       v-if="!isSignUp"
-      to="/auth/forgot-password"
+      :to="{ path: '/auth/forgot-password', query: { redirect } }"
       class="text-center text-xs text-muted underline underline-offset-4"
     >
       {{ messages.auth.value.forgotPassword }}

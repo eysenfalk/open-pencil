@@ -7,8 +7,10 @@ import { useRoute } from 'vue-router'
 import { discoveryQueryOptions } from '#admin/app/query/options'
 import PublicShell from '#admin/components/layout/PublicShell.vue'
 import { useCloudI18n } from '#admin/i18n/use'
+import { useAuthContinuation } from './useAuthContinuation'
 import { createCredentialAuthService, CredentialAuthError } from './credentials/service'
 
+const { signInRoute } = useAuthContinuation()
 const messages = useCloudI18n()
 const route = useRoute()
 const discovery = useQuery(discoveryQueryOptions())
@@ -85,7 +87,7 @@ async function submit(): Promise<void> {
           </AppButton>
         </form>
         <RouterLink
-          to="/auth/sign-in"
+          :to="signInRoute"
           class="mt-5 block text-center text-xs text-muted underline underline-offset-4"
         >
           {{ messages.auth.value.backToSignIn }}

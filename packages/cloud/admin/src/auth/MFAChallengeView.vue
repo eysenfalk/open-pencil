@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { createCloudAuthClient } from '@open-pencil/cloud/client'
+import { cloudRedirectPath, createCloudAuthClient } from '@open-pencil/cloud/client'
 
 import { cloudAdminAPI } from '#admin/api/client'
 import { cloudQueryKeys } from '#admin/app/query/keys'
@@ -23,10 +23,7 @@ const pending = ref(false)
 const error = ref(false)
 
 function redirectPath(): string {
-  const value = route.query.redirect
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
-    ? value
-    : '/admin'
+  return cloudRedirectPath(route.query.redirect)
 }
 
 async function verify(kind: 'totp' | 'recovery' | 'passkey'): Promise<void> {

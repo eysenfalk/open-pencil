@@ -123,7 +123,7 @@ export async function signInToCloud(
 
 export async function signOutFromCloud(
   discovery: CloudDiscovery,
-  options: Pick<CloudAuthClientOptions, 'fetch'> = {}
+  options: Pick<CloudAuthClientOptions, 'fetch' | 'accessToken'> = {}
 ): Promise<void> {
   const result = await createCloudAuthClient(discovery, options).signOut()
   if (result.error) throw new Error(result.error.message ?? 'Cloud sign-out failed')

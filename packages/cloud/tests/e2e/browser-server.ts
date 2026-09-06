@@ -183,7 +183,24 @@ const testSession = createCloudE2ESessionResolver()
 const app = createCloudApp({
   config,
   database,
-  auth,
+  // Synthetic actor cookies must supply synthetic MFA assurance too. Real auth
+  // flows continue through Better Auth and are covered by credential/MFA integration tests.
+  auth: {
+    ...auth,
+    async mfaStatus(headers) {
+      const actor = await testSession(new Request(config.publicURL, { headers }))
+      if (actor?.deploymentRole === 'admin')
+        return {
+          required: false,
+          enabled: true,
+          assured: true,
+          totpAvailable: true,
+          passkeysAvailable: true,
+          recoveryCodesAvailable: true
+        }
+      return auth.mfaStatus(headers)
+    }
+  },
   objects,
   invitationOutbox,
   transactionalEmail: email,
