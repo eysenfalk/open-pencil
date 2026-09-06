@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { createInvitationWorkflow } from '@/app/cloud/documents/invitation-workflow'
 import { openStorageDocumentInNewTab } from '@/app/tabs'
-import AppButton from '@/components/ui/AppButton.vue'
+import AppButton from '@/components/ui/button/AppButton.vue'
 
 const messages = useCloudMessages()
 const route = useRoute()

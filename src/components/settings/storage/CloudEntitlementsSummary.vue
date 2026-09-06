@@ -5,9 +5,9 @@ import { useCloudMessages } from '@open-pencil/vue'
 import type { WorkspaceEntitlements } from '@open-pencil/cloud/contract'
 
 import { formatStorageBytes } from '@/app/storage/format-bytes'
-import AppBadge from '@/components/ui/AppBadge.vue'
-import AppProgress from '@/components/ui/AppProgress.vue'
-import AppButton from '@/components/ui/AppButton.vue'
+import AppBadge from '@/components/ui/feedback/AppBadge.vue'
+import AppProgress from '@/components/ui/feedback/AppProgress.vue'
+import AppButton from '@/components/ui/button/AppButton.vue'
 
 const cloudMessages = useCloudMessages()
 const { entitlements, loading, error } = defineProps<{

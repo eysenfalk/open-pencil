@@ -18,9 +18,9 @@ import { openExternalURL } from '@/app/tauri/opener'
 import ConnectCloudInstanceDialog from '@/components/settings/cloud/connect-instance/ConnectCloudInstanceDialog.vue'
 import CloudEntitlementsSummary from '@/components/settings/storage/CloudEntitlementsSummary.vue'
 import { AppAlertDialogRoot, AppDialogBody, AppDialogFooter } from '@/components/ui/dialog'
-import AppBadge from '@/components/ui/AppBadge.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
-import { useButtonUI } from '@/components/ui/button'
+import AppBadge from '@/components/ui/feedback/AppBadge.vue'
+import AppSelect from '@/components/ui/select/AppSelect.vue'
+import { useButtonUI } from '@/components/ui/button/button'
 
 const router = useRouter()
 const cloudMessages = useCloudMessages()

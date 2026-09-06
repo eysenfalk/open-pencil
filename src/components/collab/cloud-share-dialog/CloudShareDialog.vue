@@ -3,9 +3,9 @@ import { computed } from 'vue'
 import type { DocumentPermission } from '@open-pencil/cloud/contract'
 
 import { useEditorStore } from '@/app/editor/active-store'
-import { useButtonUI } from '@/components/ui/button'
-import AppInput from '@/components/ui/AppInput.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
+import { useButtonUI } from '@/components/ui/button/button'
+import AppInput from '@/components/ui/input/AppInput.vue'
+import AppSelect from '@/components/ui/select/AppSelect.vue'
 import {
   expirationOptionValues,
   permissionOptionValues,

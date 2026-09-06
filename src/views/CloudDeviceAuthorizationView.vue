@@ -5,7 +5,7 @@ import { useRoute } from 'vue-router'
 
 import { createCloudAuthClient, discoverCloud, signInToCloud } from '@open-pencil/cloud/client'
 
-import AppButton from '@/components/ui/AppButton.vue'
+import AppButton from '@/components/ui/button/AppButton.vue'
 
 const cloudMessages = useCloudMessages()
 const route = useRoute()

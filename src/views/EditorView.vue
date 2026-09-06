@@ -38,7 +38,7 @@ import PropertiesPanel from '@/components/PropertiesPanel.vue'
 import RenameSelectionDialog from '@/components/selection/RenameSelectionDialog.vue'
 import SafariBanner from '@/components/SafariBanner.vue'
 import TabBar from '@/components/TabBar.vue'
-import Tip from '@/components/ui/Tip.vue'
+import Tip from '@/components/ui/overlay/Tip.vue'
 import Toolbar from '@/components/Toolbar/Toolbar.vue'
 
 const route = useRoute()
