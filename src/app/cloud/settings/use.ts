@@ -47,7 +47,7 @@ function createCloudStorageSettings() {
   let entitlementsGeneration = 0
   const entitlements = shallowRef<WorkspaceEntitlements | null>(null)
   const entitlementsLoading = ref(false)
-  const entitlementsError = ref<string | null>(null)
+  const entitlementsError = ref<'unavailable' | null>(null)
   const isLoading = computed(() => state.value?.status === 'discovering')
   cloudConnectionService.subscribe((connection) => {
     let currentURL: string
@@ -128,10 +128,10 @@ function createCloudStorageSettings() {
     try {
       const result = await connection.client.getWorkspaceEntitlements(workspaceId)
       if (isCurrent()) entitlements.value = result
-    } catch (error) {
+    } catch {
       if (!isCurrent()) return
       entitlements.value = null
-      entitlementsError.value = error instanceof Error ? error.message : String(error)
+      entitlementsError.value = 'unavailable'
     } finally {
       if (isCurrent()) entitlementsLoading.value = false
     }

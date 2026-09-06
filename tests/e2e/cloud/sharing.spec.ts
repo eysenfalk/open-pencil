@@ -397,8 +397,30 @@ test.describe('Cloud sharing browser journey', () => {
     await expect(authenticatedRecipient).toHaveURL(/\/cloud\/invitations\/[^#?]+\?server=/)
     expect(authenticatedRecipient.url()).not.toContain('#')
     await expect(authenticatedRecipient.getByText('Cloud sharing fixture')).toBeVisible()
+    let documentReads = 0
+    let acceptanceRequests = 0
+    authenticatedRecipient.on('request', (request) => {
+      if (request.url().includes(`/invitations/${invitationCapability.invitation.id}/accept`))
+        acceptanceRequests++
+    })
+    await authenticatedRecipient.route(`${cloudURL}/api/documents/${documentId}`, async (route) => {
+      documentReads++
+      // Resolution succeeds; the actual download preparation fails after navigation.
+      if (documentReads === 2)
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'unavailable' } })
+        })
+      else await route.continue()
+    })
     await authenticatedRecipient.getByRole('button', { name: 'Accept invitation' }).click()
     await expect(authenticatedRecipient).toHaveURL(/\/$/)
+    const recovery = authenticatedRecipient.getByRole('alert').filter({ hasText: 'Could not open' })
+    await expect(recovery).toBeVisible()
+    await recovery.getByRole('button', { name: 'Retry', exact: true }).click()
+    await expect(recovery).toHaveCount(0)
+    expect(acceptanceRequests).toBe(1)
     await expect(authenticatedRecipient.getByTestId('canvas-area')).toBeVisible()
     expect(
       await authenticatedRecipient.evaluate(

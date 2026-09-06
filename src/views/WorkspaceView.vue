@@ -28,6 +28,7 @@ import SafariBanner from '@/components/SafariBanner.vue'
 import TabBar from '@/components/TabBar.vue'
 import RenameSelectionDialog from '@/components/selection/RenameSelectionDialog.vue'
 import EditorWorkspace from '@/components/editor/EditorWorkspace.vue'
+import StorageOpenRecovery from '@/components/home/StorageOpenRecovery.vue'
 import HomeWorkspace from '@/components/home/HomeWorkspace.vue'
 
 const route = useRoute()
@@ -124,6 +125,7 @@ onUnmounted(() => {
     <RenameSelectionDialog />
     <CommandPalette />
     <TabBar />
+    <StorageOpenRecovery />
     <HomeWorkspace v-show="activeTab?.kind === 'home'" @new-document="createDocumentInCurrentTab" />
     <EditorWorkspace v-if="activeTab?.kind !== 'home'" />
   </div>

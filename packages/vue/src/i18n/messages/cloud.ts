@@ -79,6 +79,9 @@ export const cloudMessageDefaults = {
   enterInstanceURL: 'Enter instance URL',
   selfHostedInstance: 'Self-hosted instance',
   selfHostedDescription: 'Connect to your company or own server',
+  instanceAddressInvalid:
+    'Enter an HTTPS instance URL. HTTP is allowed only for local development.',
+  instanceUnsupported: 'This instance does not support Cloud documents and workspaces.',
   serverURL: 'Server URL',
   verifyingInstance: 'Verifying instance…',
   protocolVersion: params('Protocol {version}'),
@@ -110,6 +113,7 @@ export const cloudMessageDefaults = {
   authorizationFailed: 'Authorization failed. Please try again.',
   credentialCleanupFailed: 'The saved credential could not be removed. Sign out to retry cleanup.',
   authorizationDenied: 'Authorization denied.',
+  documentOpenFailed: params('Could not open “{name}”. Retry when the connection is available.'),
   documentInvitation: 'Document invitation',
   loadingInvitation: 'Loading invitation…',
   acceptingInvitation: 'Accepting…',

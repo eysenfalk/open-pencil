@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { runCloudOperation, cloudOperationMessage } from '@/app/cloud/settings/operation'
 import { deviceAuthorizationMessage } from '@/app/cloud/settings/errors'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -34,7 +35,7 @@ const connectionOptions = computed(() =>
 )
 const selectedConnection = computed({
   get: () => cloud.activeProfileId.value ?? '',
-  set: (id: string) => void cloud.selectConnection(id)
+  set: (id: string) => void perform(() => cloud.selectConnection(id))
 })
 const deviceAuth = computed(() => {
   const id = cloud.activeProfile.value?.id
@@ -102,18 +103,23 @@ const badgeUI = computed(() => {
 })
 const selectedWorkspace = computed({
   get: () => cloud.activeProfile.value?.selectedWorkspaceId ?? '',
-  set: (id: string) => void cloud.selectWorkspace(id)
+  set: (id: string) => void perform(() => cloud.selectWorkspace(id))
 })
 const primary = useButtonUI({ tone: 'accent', size: 'sm' })
 const secondary = useButtonUI({ tone: 'ghost', size: 'sm', bordered: true })
 const quiet = useButtonUI({ tone: 'ghost', size: 'sm' })
 
+async function perform(operation: () => Promise<unknown>) {
+  const result = await runCloudOperation(operation)
+  if (!result.ok) toast.error(cloudMessages.value[cloudOperationMessage(result.failure)])
+}
+
 async function reopenDeviceBrowser(url: string) {
-  await openExternalURL(url)
+  await perform(() => openExternalURL(url))
 }
 
 async function runPrimaryAction() {
-  try {
+  await perform(async () => {
     switch (presentation.value.primaryAction) {
       case 'open-workspace':
         await openWorkspace()
@@ -130,32 +136,24 @@ async function runPrimaryAction() {
         break
       }
     }
-  } catch (error) {
-    toast.error(error instanceof Error ? error.message : String(error))
-  }
+  })
 }
 
 async function connectOfficial() {
-  try {
-    await cloud.addConnection('official')
-  } catch (error) {
-    toast.error(error instanceof Error ? error.message : String(error))
-  }
+  await perform(() => cloud.addConnection('official'))
 }
 
 async function connectSelfHosted(serverURL: string) {
-  try {
-    await cloud.addConnection('self-hosted', serverURL)
-  } catch (error) {
-    toast.error(error instanceof Error ? error.message : String(error))
-  }
+  await perform(() => cloud.addConnection('self-hosted', serverURL))
 }
 
 async function requestDisconnect() {
   const profile = cloud.activeProfile.value
   if (!profile) return
-  disconnectSummary.value = await cloudConnectionWorkSummary(profile.id)
-  disconnectOpen.value = true
+  await perform(async () => {
+    disconnectSummary.value = await cloudConnectionWorkSummary(profile.id)
+    disconnectOpen.value = true
+  })
 }
 
 function confirmDisconnect() {
@@ -226,7 +224,7 @@ async function openWorkspace() {
         <span class="truncate text-[10px] text-muted">
           {{ cloud.state.value.session.user.email }}
         </span>
-        <button type="button" :class="quiet.base" @click="cloud.signOut">
+        <button type="button" :class="quiet.base" @click="perform(cloud.signOut)">
           {{ cloudMessages.signOut }}
         </button>
       </div>

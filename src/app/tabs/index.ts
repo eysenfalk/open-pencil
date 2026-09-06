@@ -19,7 +19,6 @@ import { setActiveEditorStore } from '@/app/editor/active-store'
 import type { EditorPreparationHandle as DocumentLoadSession } from '@/app/editor/preparation/types'
 import { createEditorStore } from '@/app/editor/session'
 import type { EditorStore } from '@/app/editor/session'
-import { notificationMessages } from '@/app/i18n/notifications'
 import {
   activeStorageProviderID,
   type StorageDocument,
@@ -34,11 +33,11 @@ import {
   loadCachedRecentFileThumbnail,
   rememberRecentStorageDocument
 } from '@/app/recent-files'
-import { toast } from '@/app/shell/ui'
 import { storageCanvasId } from '@/app/storage/id'
 import { emitActiveDocumentOpened } from '@/app/tabs/events'
 import { createFileOpenCoordinator } from '@/app/tabs/open/coordinator'
 import { findTabByFileIdentity } from '@/app/tabs/open/identity'
+import { useStorageOpenRecovery } from '@/app/tabs/open/recovery'
 import { readStorageDocument } from '@/app/tabs/open/storage'
 
 export type TabKind = 'home' | 'document'
@@ -324,7 +323,6 @@ export async function openStorageDocumentInNewTab(
     : storageOpenIdentity(activeStorageProviderID.value, document.id)
   if (identity.binding.documentId !== document.id)
     throw new Error('Document binding does not match the requested document')
-  const adapter = createBoundStorageAdapter(identity.binding)
   const connectionId =
     identity.binding.providerId === 'openpencil-cloud' ? identity.binding.connectionId : undefined
   const existing = findStorageTab(identity.providerId, document.id, connectionId)
@@ -342,6 +340,7 @@ export async function openStorageDocumentInNewTab(
   })
   let succeeded = false
   try {
+    const adapter = createBoundStorageAdapter(identity.binding)
     const file = await readStorageDocument(document, identity.binding, adapter, load)
     load.update({ phase: 'decoding', detail: document.name })
     const imported = await readFigForTab(file, load.signal)
@@ -360,9 +359,11 @@ export async function openStorageDocumentInNewTab(
     )
     rememberRecentStorageDocument(identity.providerId, document.id, document.name, identity.binding)
     emitActiveDocumentOpened(store)
+    useStorageOpenRecovery().opened(identity.binding)
     succeeded = true
   } catch (error) {
     if (!load.signal.aborted) {
+      useStorageOpenRecovery().failed({ document, binding: identity.binding })
       const diagnostic = describeDiagnosticError(error)
       load.fail({
         code: 'read-failed',
@@ -370,12 +371,6 @@ export async function openStorageDocumentInNewTab(
         retryable: diagnostic.retryable ?? true
       })
       recordStorageFailure({ operation: 'download', ...diagnostic })
-      toast.error(
-        notificationMessages.get().openFileFailed({
-          name: document.name,
-          error: error instanceof Error ? error.message : String(error)
-        })
-      )
     }
     if (created) {
       const tab = getTabForStore(store)

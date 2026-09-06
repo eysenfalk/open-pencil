@@ -11,7 +11,7 @@ import {
   AppDialogHeader,
   AppDialogRoot
 } from '@/components/ui/dialog'
-import { useConnectCloudInstance } from './useConnectCloudInstance'
+import { useConnectCloudInstance } from '@/app/cloud/settings/connect-instance/use'
 
 const cloudMessages = useCloudMessages()
 const common = useCommonMessages()
@@ -21,6 +21,18 @@ const emit = defineEmits<{
   connectSelfHosted: [serverURL: string]
 }>()
 const flow = useConnectCloudInstance()
+const verificationError = computed(() => {
+  switch (flow.error.value) {
+    case 'invalid-address':
+      return cloudMessages.value.instanceAddressInvalid
+    case 'unsupported':
+      return cloudMessages.value.instanceUnsupported
+    case 'unavailable':
+      return cloudMessages.value.statusConnectionErrorDescription
+    default:
+      return ''
+  }
+})
 const verifiedHostname = computed(() => {
   try {
     return new globalThis.URL(flow.serverURL.value).hostname
@@ -41,9 +53,7 @@ function finishSelfHosted() {
   open.value = false
 }
 
-watch(open, (isOpen) => {
-  if (isOpen) flow.reset()
-})
+watch(open, () => flow.reset())
 </script>
 
 <template>
@@ -89,7 +99,7 @@ watch(open, (isOpen) => {
           />
         </label>
         <p v-if="flow.error.value" class="text-[10px] text-danger" role="alert">
-          {{ flow.error.value }}
+          {{ verificationError }}
         </p>
       </template>
 
@@ -132,7 +142,7 @@ watch(open, (isOpen) => {
         v-if="flow.step.value !== 'choose-kind' && flow.kind.value !== 'official'"
         type="button"
         :class="secondary.base"
-        @click="flow.step.value = 'choose-kind'"
+        @click="flow.reset"
       >
         {{ cloudMessages.back }}
       </button>
