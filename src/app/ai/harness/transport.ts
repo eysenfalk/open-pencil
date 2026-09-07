@@ -70,7 +70,8 @@ export class HarnessChatTransport implements ChatTransport<UIMessage> {
   constructor(
     private readonly sessionId: string,
     private readonly configuration: HarnessSessionConfiguration,
-    private readonly environment: Record<string, string>
+    private readonly environment: Record<string, string>,
+    private readonly spawnProcess: typeof spawnHarnessProcess = spawnHarnessProcess
   ) {}
 
   async sendMessages({
@@ -203,7 +204,7 @@ export class HarnessChatTransport implements ChatTransport<UIMessage> {
     if (this.process) return this.process
     this.destroyed = false
     const environment = this.environment
-    const process = await spawnHarnessProcess({
+    const process = await this.spawnProcess({
       environment,
       onUnexpectedClose: () => this.failAll(new Error('Harness process exited unexpectedly'))
     })

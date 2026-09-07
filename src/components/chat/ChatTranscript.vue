@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useResizeObserver } from '@vueuse/core'
 import { computed, nextTick, ref, watch } from 'vue'
 import { ScrollAreaRoot, ScrollAreaScrollbar, ScrollAreaThumb, ScrollAreaViewport } from 'reka-ui'
 import type { ChatStatus, UIMessage } from 'ai'
@@ -32,6 +33,13 @@ const isThinking = computed(() => {
     return true
   return status === 'submitted'
 })
+const transcriptContent = ref<HTMLDivElement>()
+let initialScrollPending = true
+useResizeObserver(transcriptContent, ([entry]) => {
+  if (!initialScrollPending || !entry || entry.contentRect.height === 0) return
+  messagesEnd.value?.scrollIntoView({ behavior: 'instant', block: 'end' })
+  initialScrollPending = false
+})
 watch(
   () => messages,
   async () => {
@@ -57,7 +65,7 @@ watch(
       </AppPlaceholder>
 
       <!-- Messages -->
-      <div v-else data-test-id="chat-messages" class="flex flex-col gap-3">
+      <div v-else ref="transcriptContent" data-test-id="chat-messages" class="flex flex-col gap-3">
         <ChatMessage
           v-for="(msg, index) in messages"
           :key="msg.id"
