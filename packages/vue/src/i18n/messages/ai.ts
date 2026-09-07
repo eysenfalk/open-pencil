@@ -3,6 +3,11 @@ import { params } from '@nanostores/i18n'
 import { i18n } from '#vue/i18n/create'
 
 export const aiMessageDefaults = {
+  chatSettings: 'Chat',
+  reasoningDisplay: 'Reasoning display',
+  reasoningCollapsed: 'Collapsed by default',
+  reasoningWhileThinking: 'Expand while thinking',
+  reasoningExpanded: 'Expanded by default',
   continueChat: 'Continue',
   copyACPLog: 'Copy ACP log',
   diagnosticCopied: 'Diagnostic log copied.',

@@ -141,5 +141,10 @@
   "diagnosticCopied": "Registro diagnostico copiato.",
   "diagnosticCopyFailed": "Impossibile copiare il registro diagnostico. Controlla i permessi degli appunti e riprova.",
   "continueChat": "Continua",
-  "copyACPLog": "Copia registro ACP"
+  "copyACPLog": "Copia registro ACP",
+  "chatSettings": "Chat",
+  "reasoningDisplay": "Visualizzazione del ragionamento",
+  "reasoningCollapsed": "Compresso per impostazione predefinita",
+  "reasoningWhileThinking": "Espandi durante il ragionamento",
+  "reasoningExpanded": "Espanso per impostazione predefinita"
 }

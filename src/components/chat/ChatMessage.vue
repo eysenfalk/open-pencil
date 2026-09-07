@@ -10,6 +10,7 @@ import { attachmentsForMessage } from '@/app/ai/attachment/presentation/store'
 import { visibleUserMessageText } from '@/app/ai/chat/presentation'
 import AttachmentList from '@/components/chat/attachment/AttachmentList.vue'
 import ChatMarkdown from '@/components/chat/ChatMarkdown.vue'
+import { reasoningDisplay } from '@/app/ai/chat/preferences'
 import ReasoningBlock from '@/components/chat/ReasoningBlock.vue'
 import IconButton from '@/components/ui/button/IconButton.vue'
 import { classifyToolState } from './tool-state'
@@ -94,6 +95,7 @@ function partKey(part: UIMessagePart<UIDataTypes, UITools>, index: number): stri
           <ReasoningBlock
             v-if="isReasoningUIPart(part) && part.text"
             :text="part.text"
+            :display="reasoningDisplay"
             :streaming="part.state === 'streaming'"
             :thinking-label="ai.thinking"
             :reasoning-label="ai.reasoning"

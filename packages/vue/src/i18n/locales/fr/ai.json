@@ -141,5 +141,10 @@
   "diagnosticCopied": "Journal de diagnostic copié.",
   "diagnosticCopyFailed": "Impossible de copier le journal de diagnostic. Vérifiez les autorisations du presse-papiers et réessayez.",
   "continueChat": "Continuer",
-  "copyACPLog": "Copier le journal ACP"
+  "copyACPLog": "Copier le journal ACP",
+  "chatSettings": "Discussion",
+  "reasoningDisplay": "Affichage du raisonnement",
+  "reasoningCollapsed": "Replié par défaut",
+  "reasoningWhileThinking": "Déplier pendant le raisonnement",
+  "reasoningExpanded": "Déplié par défaut"
 }

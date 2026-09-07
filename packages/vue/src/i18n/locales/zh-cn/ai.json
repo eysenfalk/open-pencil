@@ -141,5 +141,10 @@
   "diagnosticCopied": "诊断日志已复制。",
   "diagnosticCopyFailed": "无法复制诊断日志。请检查剪贴板权限并重试。",
   "continueChat": "继续",
-  "copyACPLog": "复制 ACP 日志"
+  "copyACPLog": "复制 ACP 日志",
+  "chatSettings": "聊天",
+  "reasoningDisplay": "推理显示",
+  "reasoningCollapsed": "默认折叠",
+  "reasoningWhileThinking": "思考时展开",
+  "reasoningExpanded": "默认展开"
 }

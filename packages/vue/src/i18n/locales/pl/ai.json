@@ -141,5 +141,10 @@
   "diagnosticCopied": "Skopiowano dziennik diagnostyczny.",
   "diagnosticCopyFailed": "Nie udało się skopiować dziennika diagnostycznego. Sprawdź uprawnienia schowka i spróbuj ponownie.",
   "continueChat": "Kontynuuj",
-  "copyACPLog": "Kopiuj dziennik ACP"
+  "copyACPLog": "Kopiuj dziennik ACP",
+  "chatSettings": "Czat",
+  "reasoningDisplay": "Wyświetlanie rozumowania",
+  "reasoningCollapsed": "Domyślnie zwinięte",
+  "reasoningWhileThinking": "Rozwijaj podczas rozumowania",
+  "reasoningExpanded": "Domyślnie rozwinięte"
 }

@@ -141,5 +141,10 @@
   "diagnosticCopied": "診断ログをコピーしました。",
   "diagnosticCopyFailed": "診断ログをコピーできませんでした。クリップボードの権限を確認して、もう一度お試しください。",
   "continueChat": "続ける",
-  "copyACPLog": "ACPログをコピー"
+  "copyACPLog": "ACPログをコピー",
+  "chatSettings": "チャット",
+  "reasoningDisplay": "推論の表示",
+  "reasoningCollapsed": "既定で折りたたむ",
+  "reasoningWhileThinking": "思考中に展開",
+  "reasoningExpanded": "既定で展開"
 }

@@ -141,5 +141,10 @@
   "diagnosticCopied": "Diagnoseprotokoll kopiert.",
   "diagnosticCopyFailed": "Das Diagnoseprotokoll konnte nicht kopiert werden. Prüfe die Berechtigungen für die Zwischenablage und versuche es erneut.",
   "continueChat": "Fortfahren",
-  "copyACPLog": "ACP-Protokoll kopieren"
+  "copyACPLog": "ACP-Protokoll kopieren",
+  "chatSettings": "Chat",
+  "reasoningDisplay": "Anzeige der Überlegungen",
+  "reasoningCollapsed": "Standardmäßig eingeklappt",
+  "reasoningWhileThinking": "Beim Nachdenken ausklappen",
+  "reasoningExpanded": "Standardmäßig ausgeklappt"
 }
