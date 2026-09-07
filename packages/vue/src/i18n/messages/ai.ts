@@ -3,6 +3,8 @@ import { params } from '@nanostores/i18n'
 import { i18n } from '#vue/i18n/create'
 
 export const aiMessageDefaults = {
+  continueChat: 'Continue',
+  copyACPLog: 'Copy ACP log',
   diagnosticCopied: 'Diagnostic log copied.',
   diagnosticCopyFailed:
     'Could not copy the diagnostic log. Check clipboard permissions and try again.',

@@ -139,5 +139,7 @@
   "chatActions": "Azioni della conversazione",
   "copyDiagnosticLog": "Copia registro diagnostico",
   "diagnosticCopied": "Registro diagnostico copiato.",
-  "diagnosticCopyFailed": "Impossibile copiare il registro diagnostico. Controlla i permessi degli appunti e riprova."
+  "diagnosticCopyFailed": "Impossibile copiare il registro diagnostico. Controlla i permessi degli appunti e riprova.",
+  "continueChat": "Continua",
+  "copyACPLog": "Copia registro ACP"
 }

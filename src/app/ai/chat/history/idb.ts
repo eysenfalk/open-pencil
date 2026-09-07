@@ -98,22 +98,24 @@ export function createConversationStore(): ConversationStore {
       await transaction.done
     },
     async resolveFile(handle) {
-      const db = await getDatabase()
-      // isSameEntry is asynchronous and must run outside an IDB transaction.
-      const transaction = db.transaction('files')
-      const keys = await transaction.store.getAllKeys()
-      const handles = await transaction.store.getAll()
-      await transaction.done
-      for (const [index, saved] of handles.entries()) {
-        try {
-          if (await saved.isSameEntry(handle)) return String(keys[index])
-        } catch {
-          console.warn('[Chat history] Could not compare a saved file handle')
+      return navigator.locks.request('open-pencil-chat-file-identity', async () => {
+        const db = await getDatabase()
+        // isSameEntry is asynchronous and must run outside an IDB transaction.
+        const transaction = db.transaction('files')
+        const keys = await transaction.store.getAllKeys()
+        const handles = await transaction.store.getAll()
+        await transaction.done
+        for (const [index, saved] of handles.entries()) {
+          try {
+            if (await saved.isSameEntry(handle)) return String(keys[index])
+          } catch {
+            console.warn('[Chat history] Could not compare a saved file handle')
+          }
         }
-      }
-      const id = `browser-file:${crypto.randomUUID()}`
-      await db.put('files', handle, id)
-      return id
+        const id = `browser-file:${crypto.randomUUID()}`
+        await db.put('files', handle, id)
+        return id
+      })
     },
     async reassignDocument(from, to, name) {
       const transaction = (await getDatabase()).transaction(

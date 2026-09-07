@@ -139,5 +139,7 @@
   "chatActions": "Actions de la discussion",
   "copyDiagnosticLog": "Copier le journal de diagnostic",
   "diagnosticCopied": "Journal de diagnostic copié.",
-  "diagnosticCopyFailed": "Impossible de copier le journal de diagnostic. Vérifiez les autorisations du presse-papiers et réessayez."
+  "diagnosticCopyFailed": "Impossible de copier le journal de diagnostic. Vérifiez les autorisations du presse-papiers et réessayez.",
+  "continueChat": "Continuer",
+  "copyACPLog": "Copier le journal ACP"
 }

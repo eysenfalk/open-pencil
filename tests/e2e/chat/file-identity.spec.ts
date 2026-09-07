@@ -14,16 +14,20 @@ test('browser file identity survives reopening and distinguishes same-named file
       const firstDirectory = await directory.getDirectoryHandle('first', { create: true })
       const secondDirectory = await directory.getDirectoryHandle('second', { create: true })
       const file = await firstDirectory.getFileHandle('design.fig', { create: true })
-      const first = await createConversationStore().resolveFile(file)
+      const concurrent = await Promise.all(
+        Array.from({ length: 12 }, () => createConversationStore().resolveFile(file))
+      )
+      const first = concurrent[0]
       const reopened = await firstDirectory.getFileHandle('design.fig')
       const second = await createConversationStore().resolveFile(reopened)
       const other = await secondDirectory.getFileHandle('design.fig', { create: true })
       const third = await createConversationStore().resolveFile(other)
-      return { first, second, third }
+      return { first, second, third, concurrent }
     } finally {
       await root.removeEntry(directoryName, { recursive: true })
     }
   })
+  expect(new Set(ids.concurrent).size).toBe(1)
   expect(ids.first).toBe(ids.second)
   expect(ids.third).not.toBe(ids.first)
 })

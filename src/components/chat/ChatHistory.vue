@@ -192,9 +192,9 @@ function closeMenu(event: Event) {
             <DropdownMenuItem v-if="debug" :class="item" @select="emit('copyDebug')">{{
               ai.copyDiagnosticLog
             }}</DropdownMenuItem>
-            <DropdownMenuItem v-if="acpDebug" :class="item" @select="emit('copyACPDebug')"
-              >Copy ACP log</DropdownMenuItem
-            >
+            <DropdownMenuItem v-if="acpDebug" :class="item" @select="emit('copyACPDebug')">{{
+              ai.copyACPLog
+            }}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenuPortal>
       </DropdownMenuRoot>

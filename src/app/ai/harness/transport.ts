@@ -137,11 +137,15 @@ export class HarnessChatTransport implements ChatTransport<UIMessage> {
 
   async stop(): Promise<void> {
     if (this.destroyed) return
-    if (this.sessionCreated) {
-      await this.request({ method: 'session.stop', params: { sessionId: this.sessionId } })
+    try {
+      if (this.sessionCreated) {
+        await this.request({ method: 'session.stop', params: { sessionId: this.sessionId } })
+      }
+    } finally {
+      // Stopping must never delete resume state, including when saving it fails.
       this.sessionCreated = false
+      await this.destroy()
     }
-    await this.destroy()
   }
 
   async destroy(): Promise<void> {

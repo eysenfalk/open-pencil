@@ -139,5 +139,7 @@
   "chatActions": "Działania rozmowy",
   "copyDiagnosticLog": "Kopiuj dziennik diagnostyczny",
   "diagnosticCopied": "Skopiowano dziennik diagnostyczny.",
-  "diagnosticCopyFailed": "Nie udało się skopiować dziennika diagnostycznego. Sprawdź uprawnienia schowka i spróbuj ponownie."
+  "diagnosticCopyFailed": "Nie udało się skopiować dziennika diagnostycznego. Sprawdź uprawnienia schowka i spróbuj ponownie.",
+  "continueChat": "Kontynuuj",
+  "copyACPLog": "Kopiuj dziennik ACP"
 }

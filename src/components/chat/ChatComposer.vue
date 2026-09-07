@@ -48,7 +48,7 @@ function handleSubmit(event: Event) {
             :placeholder="ai.describeChange"
             :disabled="isStreaming"
             rows="2"
-            aria-label="Describe a change"
+            :aria-label="ai.describeChange"
             class="block min-h-12 w-full resize-none overflow-y-auto bg-transparent px-3 pt-2.5 pb-1 text-xs leading-relaxed text-surface outline-none placeholder:text-muted disabled:cursor-not-allowed disabled:opacity-60"
             @keydown="handleInputKeydown"
             @copy.stop

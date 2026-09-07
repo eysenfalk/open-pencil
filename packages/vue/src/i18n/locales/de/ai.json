@@ -139,5 +139,7 @@
   "chatActions": "Unterhaltungsaktionen",
   "copyDiagnosticLog": "Diagnoseprotokoll kopieren",
   "diagnosticCopied": "Diagnoseprotokoll kopiert.",
-  "diagnosticCopyFailed": "Das Diagnoseprotokoll konnte nicht kopiert werden. Prüfe die Berechtigungen für die Zwischenablage und versuche es erneut."
+  "diagnosticCopyFailed": "Das Diagnoseprotokoll konnte nicht kopiert werden. Prüfe die Berechtigungen für die Zwischenablage und versuche es erneut.",
+  "continueChat": "Fortfahren",
+  "copyACPLog": "ACP-Protokoll kopieren"
 }

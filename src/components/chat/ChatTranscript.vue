@@ -38,7 +38,7 @@ watch(
     await nextTick()
     messagesEnd.value?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   },
-  { deep: true }
+  { deep: true, immediate: true }
 )
 </script>
 
@@ -93,7 +93,7 @@ watch(
             @click="emit('continue')"
           >
             <icon-lucide-play class="size-3" />
-            Continue
+            {{ ai.continueChat }}
           </button>
         </div>
 

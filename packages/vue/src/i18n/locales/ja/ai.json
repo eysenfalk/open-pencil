@@ -139,5 +139,7 @@
   "chatActions": "会話の操作",
   "copyDiagnosticLog": "診断ログをコピー",
   "diagnosticCopied": "診断ログをコピーしました。",
-  "diagnosticCopyFailed": "診断ログをコピーできませんでした。クリップボードの権限を確認して、もう一度お試しください。"
+  "diagnosticCopyFailed": "診断ログをコピーできませんでした。クリップボードの権限を確認して、もう一度お試しください。",
+  "continueChat": "続ける",
+  "copyACPLog": "ACPログをコピー"
 }

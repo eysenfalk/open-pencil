@@ -90,6 +90,14 @@ async function historyAction(action: () => Promise<unknown>) {
   }
 }
 
+async function renameConversation(id: string, title: string) {
+  try {
+    await history.rename(id, title)
+  } catch {
+    toast.error(ai.value.chatHistoryFailed)
+  }
+}
+
 const failureMessage = computed(() => {
   switch (chatFailure.value?.reason) {
     case 'authentication':
@@ -194,7 +202,7 @@ async function handleCopyACPLog() {
       :disabled="history.busy.value"
       @create="historyAction(history.newChat)"
       @select="historyAction(() => history.open($event))"
-      @rename="(id, title) => history.rename(id, title)"
+      @rename="renameConversation"
       @delete="historyAction(() => history.remove($event))"
     />
     <p v-if="diagnosticNotice" role="status" class="px-3 py-2 text-xs text-muted">

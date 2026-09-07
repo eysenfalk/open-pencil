@@ -139,5 +139,7 @@
   "chatActions": "对话操作",
   "copyDiagnosticLog": "复制诊断日志",
   "diagnosticCopied": "诊断日志已复制。",
-  "diagnosticCopyFailed": "无法复制诊断日志。请检查剪贴板权限并重试。"
+  "diagnosticCopyFailed": "无法复制诊断日志。请检查剪贴板权限并重试。",
+  "continueChat": "继续",
+  "copyACPLog": "复制 ACP 日志"
 }
