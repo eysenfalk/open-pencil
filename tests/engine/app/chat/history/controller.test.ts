@@ -19,6 +19,38 @@ function editor(): ChatDocumentEditor {
   }
 }
 
+test('adopting recovery in the same editor loads its selection instead of moving old chats', async () => {
+  const store = createConversationStore()
+  const active = editor()
+  const history = createConversationHistory(
+    {
+      getEditor: () => active,
+      ensureChat: async () => null,
+      resetChat: async () => undefined,
+      backend: () => 'direct'
+    },
+    store
+  )
+  await history.initialize()
+  const original = history.current.value
+  if (!original) throw new Error('Missing draft')
+  await history.rename(original.id, 'Existing chat')
+  const recoveryId = crypto.randomUUID()
+  const restoredId = crypto.randomUUID()
+  await store.write({
+    ...original,
+    id: restoredId,
+    documentId: `recovery:${recoveryId}`,
+    title: 'Recovered chat',
+    titleSource: 'manual'
+  })
+  await store.select(`recovery:${recoveryId}`, restoredId)
+  active.getRecoveryId = () => recoveryId
+  await history.initialize()
+  expect(history.current.value?.id).toBe(restoredId)
+  expect((await store.read(original.id))?.documentId).toBe(original.documentId)
+})
+
 function fixture() {
   let activeEditor = editor()
   let failWrites = false

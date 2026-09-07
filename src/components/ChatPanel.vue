@@ -148,8 +148,13 @@ watch(
   }
 )
 watch(
-  () => activeTab.value?.id,
-  async () => {
+  () => [activeTab.value?.id, activeTab.value?.store.state.preparation] as const,
+  async ([, preparation]) => {
+    if (preparation) {
+      viewGeneration++
+      submission.cancel()
+      return
+    }
     const generation = ++viewGeneration
     submission.cancel()
     chat.value = null

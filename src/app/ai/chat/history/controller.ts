@@ -31,6 +31,7 @@ export function createConversationHistory<TChat extends HistoryChat>(
   const interrupted = ref(false)
   const readOnly = ref(false)
   const busy = ref(false)
+  let ownerRecoveryId: string | null = null
   let owner: ChatDocumentEditor | null = null
   let generation = 0
   let live: HistoryChat | null = null
@@ -102,6 +103,7 @@ export function createConversationHistory<TChat extends HistoryChat>(
 
   async function activate(conversation: Conversation) {
     owner = runtime.getEditor()
+    ownerRecoveryId = owner.getRecoveryId()
     interrupted.value = conversation.interrupted
     readOnly.value = conversation.documentId !== chatDocumentId(runtime.getEditor())
     current.value = conversation
@@ -136,6 +138,7 @@ export function createConversationHistory<TChat extends HistoryChat>(
     const documentId = await resolveChatDocumentId(editor, store)
     if (
       owner === editor &&
+      ownerRecoveryId === editor.getRecoveryId() &&
       current.value &&
       !readOnly.value &&
       current.value.documentId !== documentId
@@ -148,6 +151,7 @@ export function createConversationHistory<TChat extends HistoryChat>(
     if (current.value?.documentId === documentId) {
       readOnly.value = false
       owner = editor
+      ownerRecoveryId = editor.getRecoveryId()
       return
     }
     await detach()
