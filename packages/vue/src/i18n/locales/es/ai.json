@@ -146,5 +146,6 @@
   "reasoningDisplay": "Visualización del razonamiento",
   "reasoningCollapsed": "Contraído por defecto",
   "reasoningWhileThinking": "Expandir al razonar",
-  "reasoningExpanded": "Expandido por defecto"
+  "reasoningExpanded": "Expandido por defecto",
+  "jumpToLatest": "Ir al último mensaje"
 }

@@ -146,5 +146,6 @@
   "reasoningDisplay": "Affichage du raisonnement",
   "reasoningCollapsed": "Replié par défaut",
   "reasoningWhileThinking": "Déplier pendant le raisonnement",
-  "reasoningExpanded": "Déplié par défaut"
+  "reasoningExpanded": "Déplié par défaut",
+  "jumpToLatest": "Aller au dernier message"
 }

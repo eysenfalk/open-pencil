@@ -51,6 +51,14 @@ test('collapsed reasoning respects reduced motion and does not scroll old conten
     )
     .toBeGreaterThan(500)
   expect(await viewport.evaluate((element) => element.scrollTop)).toBeLessThan(30)
+  await page.getByRole('button', { name: 'Jump to latest' }).click()
+  await expect
+    .poll(() =>
+      viewport.evaluate(
+        (element) => element.scrollHeight - element.scrollTop - element.clientHeight
+      )
+    )
+    .toBeLessThan(3)
 })
 
 test('reasoning preferences use AI settings and persist across reload', async ({

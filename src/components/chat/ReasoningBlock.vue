@@ -63,6 +63,7 @@ function updateOpen(value: boolean): void {
 <template>
   <CollapsibleRoot
     :open="open"
+    :unmount-on-hide="false"
     class="rounded-lg border border-border bg-canvas"
     @update:open="updateOpen"
   >
@@ -72,7 +73,11 @@ function updateOpen(value: boolean): void {
     >
       <icon-lucide-brain class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
       <span class="flex-1">{{ streaming ? thinkingLabel : reasoningLabel }}</span>
-      <icon-lucide-loader-circle v-if="streaming" class="size-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+      <icon-lucide-loader-circle
+        v-if="streaming"
+        class="size-3 animate-spin motion-reduce:animate-none"
+        aria-hidden="true"
+      />
       <icon-lucide-chevron-down
         v-else
         class="size-3 transition-transform motion-reduce:transition-none [[data-state=open]>&]:rotate-180"
@@ -81,7 +86,7 @@ function updateOpen(value: boolean): void {
     </CollapsibleTrigger>
     <CollapsibleContent
       data-slot="chat-reasoning-content"
-      class="motion-safe:data-[state=closed]:animate-collapsible-up motion-safe:data-[state=open]:animate-collapsible-down overflow-hidden"
+      class="motion-safe:data-[state=closed]:animate-collapsible-up motion-safe:data-[state=open]:animate-collapsible-down animation-duration-150 overflow-hidden"
     >
       <div class="border-t border-border px-2 py-1.5 text-[11px] leading-relaxed text-muted">
         <ChatMarkdown :content="text" :mode="markdownMode" surface="reasoning" />

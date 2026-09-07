@@ -146,5 +146,6 @@
   "reasoningDisplay": "Visualizzazione del ragionamento",
   "reasoningCollapsed": "Compresso per impostazione predefinita",
   "reasoningWhileThinking": "Espandi durante il ragionamento",
-  "reasoningExpanded": "Espanso per impostazione predefinita"
+  "reasoningExpanded": "Espanso per impostazione predefinita",
+  "jumpToLatest": "Vai all’ultimo messaggio"
 }

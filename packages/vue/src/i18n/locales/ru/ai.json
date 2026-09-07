@@ -146,5 +146,6 @@
   "reasoningDisplay": "Отображение рассуждений",
   "reasoningCollapsed": "Свёрнуто по умолчанию",
   "reasoningWhileThinking": "Разворачивать во время размышлений",
-  "reasoningExpanded": "Развёрнуто по умолчанию"
+  "reasoningExpanded": "Развёрнуто по умолчанию",
+  "jumpToLatest": "К последнему сообщению"
 }

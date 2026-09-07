@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { useResizeObserver } from '@vueuse/core'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
+import { useScrollFollowing } from './transcript/useScrollFollowing'
+import IconButton from '@/components/ui/button/IconButton.vue'
 import { ScrollAreaRoot, ScrollAreaScrollbar, ScrollAreaThumb, ScrollAreaViewport } from 'reka-ui'
 import type { ChatStatus, UIMessage } from 'ai'
 import { useI18n } from '@open-pencil/vue'
@@ -21,7 +22,6 @@ const {
 }>()
 const emit = defineEmits<{ continue: [] }>()
 const { ai } = useI18n()
-const messagesEnd = ref<HTMLDivElement>()
 const running = computed(() => status === 'submitted' || status === 'streaming')
 const isThinking = computed(() => {
   if (!running.value) return false
@@ -34,25 +34,18 @@ const isThinking = computed(() => {
   return status === 'submitted'
 })
 const transcriptContent = ref<HTMLDivElement>()
-let initialScrollPending = true
-useResizeObserver(transcriptContent, ([entry]) => {
-  if (!initialScrollPending || !entry || entry.contentRect.height === 0) return
-  messagesEnd.value?.scrollIntoView({ behavior: 'instant', block: 'end' })
-  initialScrollPending = false
-})
-watch(
-  () => messages,
-  async () => {
-    await nextTick()
-    messagesEnd.value?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  },
-  { deep: true, immediate: true }
+const viewportComponent = ref<{ viewportElement?: HTMLElement }>()
+const viewport = computed(() => viewportComponent.value?.viewportElement)
+const { arrivedState, resumeFollowing } = useScrollFollowing(
+  viewport,
+  transcriptContent,
+  computed(() => status === 'submitted')
 )
 </script>
 
 <template>
-  <ScrollAreaRoot class="min-h-0 flex-1">
-    <ScrollAreaViewport class="h-full px-3 py-3 [&>div]:h-full">
+  <ScrollAreaRoot class="relative min-h-0 flex-1">
+    <ScrollAreaViewport ref="viewportComponent" class="h-full px-3 py-3 [&>div]:h-full">
       <AppPlaceholder
         v-if="messages.length === 0"
         data-test-id="chat-empty-state"
@@ -104,12 +97,17 @@ watch(
             {{ ai.continueChat }}
           </button>
         </div>
-
-        <div ref="messagesEnd" />
       </div>
     </ScrollAreaViewport>
     <ScrollAreaScrollbar orientation="vertical" class="flex w-1.5 touch-none p-px select-none">
       <ScrollAreaThumb class="relative flex-1 rounded-full bg-muted/30" />
     </ScrollAreaScrollbar>
+    <IconButton
+      v-if="messages.length && !arrivedState.bottom"
+      :label="ai.jumpToLatest"
+      class="absolute right-3 bottom-3 border border-border bg-panel shadow-sm"
+      @click="resumeFollowing"
+      ><icon-lucide-arrow-down class="size-4"
+    /></IconButton>
   </ScrollAreaRoot>
 </template>

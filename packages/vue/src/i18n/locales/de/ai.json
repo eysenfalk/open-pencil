@@ -146,5 +146,6 @@
   "reasoningDisplay": "Anzeige der Überlegungen",
   "reasoningCollapsed": "Standardmäßig eingeklappt",
   "reasoningWhileThinking": "Beim Nachdenken ausklappen",
-  "reasoningExpanded": "Standardmäßig ausgeklappt"
+  "reasoningExpanded": "Standardmäßig ausgeklappt",
+  "jumpToLatest": "Zum neuesten Beitrag"
 }
