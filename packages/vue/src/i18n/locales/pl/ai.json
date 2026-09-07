@@ -130,5 +130,14 @@
   "chatAgentReadOnly": "Rozmowa z agentem została zapisana, ale nie można tu jeszcze wznowić jego sesji. Rozpocznij nowy czat.",
   "chatStorageFailed": "Nie udało się zapisać historii. Nie zamykaj tego okna i spróbuj ponownie.",
   "chatHistoryFailed": "Nie udało się zaktualizować historii. Spróbuj ponownie.",
-  "chatInterrupted": "Ta odpowiedź została przerwana."
+  "chatInterrupted": "Ta odpowiedź została przerwana.",
+  "searchChats": "Szukaj rozmów…",
+  "chatScope": "Zakres rozmów",
+  "thisDocument": "Ten dokument",
+  "allDocuments": "Wszystkie dokumenty",
+  "noChatsFound": "Nie znaleziono rozmów.",
+  "chatActions": "Działania rozmowy",
+  "copyDiagnosticLog": "Kopiuj dziennik diagnostyczny",
+  "diagnosticCopied": "Skopiowano dziennik diagnostyczny.",
+  "diagnosticCopyFailed": "Nie udało się skopiować dziennika diagnostycznego. Sprawdź uprawnienia schowka i spróbuj ponownie."
 }

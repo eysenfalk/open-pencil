@@ -3,6 +3,16 @@ import { params } from '@nanostores/i18n'
 import { i18n } from '#vue/i18n/create'
 
 export const aiMessageDefaults = {
+  diagnosticCopied: 'Diagnostic log copied.',
+  diagnosticCopyFailed:
+    'Could not copy the diagnostic log. Check clipboard permissions and try again.',
+  copyDiagnosticLog: 'Copy diagnostic log',
+  searchChats: 'Search conversations…',
+  chatScope: 'Conversation scope',
+  thisDocument: 'This document',
+  allDocuments: 'All documents',
+  noChatsFound: 'No conversations found.',
+  chatActions: 'Conversation actions',
   chatHistory: 'Conversation history',
   newChat: 'New chat',
   allChats: 'All chats',

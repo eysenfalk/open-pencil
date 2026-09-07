@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { refAutoReset, useClipboard } from '@vueuse/core'
-import { computed, markRaw, shallowRef, watch } from 'vue'
+import { useClipboard } from '@vueuse/core'
+import { computed, markRaw, ref, shallowRef, watch } from 'vue'
 
 import { getACPDebugText, hasACPDebugEntries } from '@/app/ai/acp/transport'
 import { copyChatLog } from '@/app/ai/debug'
@@ -13,7 +13,6 @@ import ChatInput from '@/components/chat/ChatInput.vue'
 import ChatHistory from '@/components/chat/ChatHistory.vue'
 import { chatDocumentId } from '@/app/ai/chat/history/document'
 import ChatTranscript from '@/components/chat/ChatTranscript.vue'
-import AppButton from '@/components/ui/AppButton.vue'
 import ProviderSetup from '@/components/chat/ProviderSetup.vue'
 import { useAIChat } from '@/app/ai/chat/use'
 import { toast } from '@/app/shell/ui'
@@ -62,8 +61,6 @@ void ensureChat()
       })
     )
   })
-const debugCopied = refAutoReset(false, 1500)
-const acpLogCopied = refAutoReset(false, 1500)
 
 const messages = computed(() => chat.value?.messages ?? history.messages.value)
 const historyOptions = computed(() => {
@@ -163,22 +160,35 @@ function handleStop() {
   submission.stop()
 }
 
+const diagnosticNotice = ref('')
+async function copyDiagnostics(operation: () => Promise<void>) {
+  diagnosticNotice.value = ''
+  try {
+    await operation()
+    diagnosticNotice.value = ai.value.diagnosticCopied
+  } catch {
+    diagnosticNotice.value = ai.value.diagnosticCopyFailed
+  }
+}
 async function handleCopyDebug() {
-  await copyChatLog(messages.value, chatFailure.value)
-  debugCopied.value = true
+  await copyDiagnostics(() => copyChatLog(messages.value, chatFailure.value))
 }
 
 async function handleCopyACPLog() {
   const text = getACPDebugText()
   if (!text) return
-  await copy(text)
-  acpLogCopied.value = true
+  await copyDiagnostics(() => copy(text))
 }
 </script>
 
 <template>
   <div data-test-id="chat-panel" class="flex min-w-0 flex-1 flex-col overflow-hidden select-text">
     <ChatHistory
+      :saved="history.conversations.value.some((row) => row.id === history.current.value?.id)"
+      :debug="true"
+      :acp-debug="IS_DEV && hasACPDebugEntries()"
+      @copy-debug="handleCopyDebug"
+      @copy-a-c-p-debug="handleCopyACPLog"
       :conversations="historyOptions"
       :selected-id="history.current.value?.id"
       :disabled="history.busy.value"
@@ -187,6 +197,9 @@ async function handleCopyACPLog() {
       @rename="(id, title) => history.rename(id, title)"
       @delete="historyAction(() => history.remove($event))"
     />
+    <p v-if="diagnosticNotice" role="status" class="px-3 py-2 text-xs text-muted">
+      {{ diagnosticNotice }}
+    </p>
     <p v-if="history.storageError.value" role="alert" class="px-3 py-2 text-xs text-red-400">
       {{ ai.chatStorageFailed }}
     </p>
@@ -213,29 +226,6 @@ async function handleCopyACPLog() {
           })
         "
       />
-
-      <!-- Chat toolbar -->
-      <div
-        v-if="messages.length > 0"
-        class="flex shrink-0 items-center gap-1 border-t border-border px-3 py-1"
-      >
-        <AppButton v-if="IS_DEV" color="neutral" variant="ghost" size="xs" @click="handleCopyDebug">
-          <icon-lucide-clipboard-copy v-if="!debugCopied" class="size-3" />
-          <icon-lucide-check v-else class="size-3 text-green-400" />
-          {{ debugCopied ? 'Copied' : 'Copy log' }}
-        </AppButton>
-        <AppButton
-          v-if="IS_DEV && hasACPDebugEntries()"
-          color="neutral"
-          variant="ghost"
-          size="xs"
-          @click="handleCopyACPLog"
-        >
-          <icon-lucide-bug v-if="!acpLogCopied" class="size-3" />
-          <icon-lucide-check v-else class="size-3 text-green-400" />
-          {{ acpLogCopied ? 'Copied' : 'ACP log' }}
-        </AppButton>
-      </div>
 
       <p v-if="agentHistoryReadOnly" role="status" class="px-3 py-2 text-xs text-muted">
         {{ ai.chatAgentReadOnly }}

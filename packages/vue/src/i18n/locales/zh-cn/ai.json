@@ -130,5 +130,14 @@
   "chatAgentReadOnly": "与代理的对话已保存，但暂时无法在此恢复会话。请新建聊天。",
   "chatStorageFailed": "无法保存聊天记录。请保持此窗口打开并重试。",
   "chatHistoryFailed": "无法更新聊天记录。请重试。",
-  "chatInterrupted": "此回复已中断。"
+  "chatInterrupted": "此回复已中断。",
+  "searchChats": "搜索对话…",
+  "chatScope": "对话范围",
+  "thisDocument": "此文档",
+  "allDocuments": "所有文档",
+  "noChatsFound": "未找到对话。",
+  "chatActions": "对话操作",
+  "copyDiagnosticLog": "复制诊断日志",
+  "diagnosticCopied": "诊断日志已复制。",
+  "diagnosticCopyFailed": "无法复制诊断日志。请检查剪贴板权限并重试。"
 }

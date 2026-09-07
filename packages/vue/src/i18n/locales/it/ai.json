@@ -130,5 +130,14 @@
   "chatAgentReadOnly": "La conversazione con l’agente è salvata, ma non è ancora possibile riprendere la sessione qui. Avvia una nuova chat.",
   "chatStorageFailed": "Impossibile salvare la cronologia. Tieni aperta questa finestra e riprova.",
   "chatHistoryFailed": "Impossibile aggiornare la cronologia. Riprova.",
-  "chatInterrupted": "Questa risposta è stata interrotta."
+  "chatInterrupted": "Questa risposta è stata interrotta.",
+  "searchChats": "Cerca conversazioni…",
+  "chatScope": "Ambito delle conversazioni",
+  "thisDocument": "Questo documento",
+  "allDocuments": "Tutti i documenti",
+  "noChatsFound": "Nessuna conversazione trovata.",
+  "chatActions": "Azioni della conversazione",
+  "copyDiagnosticLog": "Copia registro diagnostico",
+  "diagnosticCopied": "Registro diagnostico copiato.",
+  "diagnosticCopyFailed": "Impossibile copiare il registro diagnostico. Controlla i permessi degli appunti e riprova."
 }

@@ -130,5 +130,14 @@
   "chatAgentReadOnly": "La conversation avec l’agent est enregistrée, mais sa session ne peut pas encore reprendre ici. Commencez une nouvelle discussion.",
   "chatStorageFailed": "Impossible d’enregistrer l’historique. Gardez cette fenêtre ouverte et réessayez.",
   "chatHistoryFailed": "Impossible de mettre à jour l’historique. Réessayez.",
-  "chatInterrupted": "Cette réponse a été interrompue."
+  "chatInterrupted": "Cette réponse a été interrompue.",
+  "searchChats": "Rechercher des discussions…",
+  "chatScope": "Portée des discussions",
+  "thisDocument": "Ce document",
+  "allDocuments": "Tous les documents",
+  "noChatsFound": "Aucune discussion trouvée.",
+  "chatActions": "Actions de la discussion",
+  "copyDiagnosticLog": "Copier le journal de diagnostic",
+  "diagnosticCopied": "Journal de diagnostic copié.",
+  "diagnosticCopyFailed": "Impossible de copier le journal de diagnostic. Vérifiez les autorisations du presse-papiers et réessayez."
 }
