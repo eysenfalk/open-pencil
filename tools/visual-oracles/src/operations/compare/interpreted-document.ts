@@ -4,10 +4,12 @@ import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
 import { captureGraphOracle, figmaOracleScript } from '#visual/capture-scene'
+import { summarizePathDiagnostics } from '#visual/path-diagnostics'
 import { compareSceneOracle, type SceneOracleNode } from '#visual/scene-oracle'
 import { $ } from 'bun'
 
 import { materializeDocument, parseFigBuffer } from '@open-pencil/fig'
+import type { InstancePathDiagnostic } from '@open-pencil/fig/instance-overrides'
 
 const { values } = parseArgs({
   options: {
@@ -32,7 +34,7 @@ if (
   throw new Error('Invalid oracle capture identity')
 }
 const { nodeChanges, blobs, images } = parseFigBuffer(await Bun.file(values.file).arrayBuffer())
-const diagnostics: unknown[] = []
+const diagnostics: InstancePathDiagnostic[] = []
 const { graph, sources } = materializeDocument(nodeChanges, blobs, {
   images: new Map(images),
   derivedBounds: true,
@@ -42,7 +44,14 @@ const root = sources.get(values.node)
 if (!root) throw new Error('Missing assembled root')
 const actual = captureGraphOracle(graph, root, sources)
 const differences = compareSceneOracle(oracle.nodes, actual)
-for (const [name, value] of Object.entries({ oracle, actual, differences, diagnostics })) {
+const groupedDiagnostics = summarizePathDiagnostics(diagnostics)
+for (const [name, value] of Object.entries({
+  oracle,
+  actual,
+  differences,
+  diagnostics,
+  groupedDiagnostics
+})) {
   await Bun.write(join(values.output, `${name}.json`), JSON.stringify(value, null, 2))
 }
 const counts: Record<string, number> = {}
@@ -54,6 +63,7 @@ console.log(
       expectedNodes: oracle.nodes.length,
       actualNodes: actual.length,
       differences: counts,
+      uniqueUnresolvedPaths: groupedDiagnostics.length,
       unresolvedCallbacks: diagnostics.length
     },
     null,

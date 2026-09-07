@@ -37,6 +37,7 @@ export interface InstanceOccurrence {
   readonly sourceId: string
   readonly overrideKey: GUID | undefined
   mainComponentId: string | null
+  mainComponentOverrideKey?: GUID
   properties: NodeChange
   children: InstanceOccurrence[]
   /** Explicit property records declared by this occurrence's source. */
@@ -103,13 +104,30 @@ function findSegment(root: InstanceOccurrence, guid: GUID): InstanceOccurrence {
   return matches[0]
 }
 
+function isRootGuid(owner: InstanceOccurrence, guid: GUID): boolean {
+  return (
+    sameGuid(owner.properties.symbolData?.symbolID, guid) ||
+    sameGuid(owner.mainComponentOverrideKey, guid)
+  )
+}
+
+function restorePlacedSize(source: NodeChange, occurrence: InstanceOccurrence): void {
+  if (source.type === 'INSTANCE' && source.size)
+    occurrence.properties.size = structuredClone(source.size)
+}
+
 export function resolveOccurrencePath(
   owner: InstanceOccurrence,
   path: readonly GUID[]
 ): InstanceOccurrence {
   let target = owner
   for (const [index, guid] of path.entries()) {
-    if (index === 0 && sameGuid(owner.properties.symbolData?.symbolID, guid)) continue
+    if (
+      index === 0 &&
+      (sameGuid(owner.properties.symbolData?.symbolID, guid) ||
+        sameGuid(owner.mainComponentOverrideKey, guid))
+    )
+      continue
     target = findSegment(target, guid)
   }
   return target
@@ -184,12 +202,23 @@ function applyDerivedBounds(
   }
 }
 
+function inheritedOccurrenceProperties(
+  base: InstanceOccurrence | null
+): Pick<InstanceOccurrence, 'propertyClaims' | 'mainComponentOverrideKey' | 'mainComponentId'> {
+  return {
+    propertyClaims: structuredClone(base?.propertyClaims ?? []),
+    mainComponentOverrideKey: base?.mainComponentOverrideKey ?? base?.overrideKey,
+    mainComponentId: base ? (base.mainComponentId ?? base.sourceId) : null
+  }
+}
+
 function symbolOverrides(source: NodeChange): readonly SymbolOverride[] {
   return (source.symbolData as SymbolData | undefined)?.symbolOverrides ?? []
 }
 
 function replaceOccurrence(target: InstanceOccurrence, replacement: InstanceOccurrence): void {
   if (target.mainComponentId === null) throw new Error('Swap target is not an instance')
+  target.mainComponentOverrideKey = replacement.mainComponentOverrideKey ?? replacement.overrideKey
   target.mainComponentId = replacement.mainComponentId ?? replacement.sourceId
   const { guid, parentIndex, type, name, transform, size } = target.properties
   target.properties = {
@@ -232,10 +261,11 @@ function groupedStructuralOverrides(overrides: readonly SymbolOverride[]): Symbo
   return groups.sort((a, b) => (a.guidPath?.guids?.length ?? 0) - (b.guidPath?.guids?.length ?? 0))
 }
 
-function rootAssignments(source: NodeChange): ComponentPropAssignment[] {
+function rootAssignments(source: NodeChange, componentKey?: GUID): ComponentPropAssignment[] {
   return symbolOverrides(source).flatMap((override) => {
     const path = override.guidPath?.guids
-    return path?.length === 1 && sameGuid(source.symbolData?.symbolID, path[0])
+    return path?.length === 1 &&
+      (sameGuid(source.symbolData?.symbolID, path[0]) || sameGuid(componentKey, path[0]))
       ? (override.componentPropAssignments ?? [])
       : []
   })
@@ -452,22 +482,24 @@ function interpretRoot(
     expanding.add(id)
     try {
       const symbolId = source.symbolData?.symbolID
+      const componentKey = symbolId
+        ? readOverrideKey(sources.get(guidToString(symbolId))?.overrideKey)
+        : undefined
       const ownAssignments = (source.componentPropAssignments ?? []) as ComponentPropAssignment[]
       const base = symbolId
         ? expand(
             guidToString(symbolId),
             [],
-            [...ownAssignments, ...rootAssignments(source), ...assignments]
+            [...ownAssignments, ...rootAssignments(source, componentKey), ...assignments]
           )
         : null
       const childBindings = bindingContext(source, bindings, assignments)
       const occurrence: InstanceOccurrence = {
         sourceId: id,
-        propertyClaims: structuredClone(base?.propertyClaims ?? []),
+        ...inheritedOccurrenceProperties(base),
         bindingClaims,
         hasOwnName: inheritsInstanceName(symbolId, base),
         overrideKey: readOverrideKey(source.overrideKey),
-        mainComponentId: base ? (base.mainComponentId ?? base.sourceId) : null,
         properties: { ...base?.properties, ...structuredClone(source) },
         children:
           base?.children ??
@@ -488,7 +520,7 @@ function interpretRoot(
         let target = occurrence
         try {
           for (const [index, guid] of path.entries()) {
-            if (index === 0 && sameGuid(symbolId, guid)) continue
+            if (index === 0 && isRootGuid(occurrence, guid)) continue
             target = findSegment(target, guid)
           }
         } catch (cause) {
@@ -509,7 +541,7 @@ function interpretRoot(
           const path = override.guidPath?.guids
           return !(
             path?.length === 1 &&
-            sameGuid(symbolId, path[0]) &&
+            isRootGuid(occurrence, path[0]) &&
             !override.overriddenSymbolID
           )
         }),
@@ -530,6 +562,7 @@ function interpretRoot(
         occurrence.propertyClaims.push(claim)
         indexClaim(target, claim)
       })
+      restorePlacedSize(source, occurrence)
       applyDerivedBounds(source, occurrence, targetFor, options)
       recipes.set(occurrence, (next) => expand(id, bindings, [...assignments, ...next]))
       return occurrence
