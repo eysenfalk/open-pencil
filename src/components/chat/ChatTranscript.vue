@@ -6,7 +6,7 @@ import { useI18n } from '@open-pencil/vue'
 
 import type { AttachmentPresentation } from '@/app/ai/attachment/presentation/types'
 import ChatMessage from './ChatMessage.vue'
-import AppPlaceholder from '@/components/ui/AppPlaceholder.vue'
+import AppPlaceholder from '@/components/ui/feedback/AppPlaceholder.vue'
 
 const {
   messages,

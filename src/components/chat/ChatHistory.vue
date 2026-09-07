@@ -14,12 +14,12 @@ import {
   DropdownMenuSeparator
 } from 'reka-ui'
 import { useI18n } from '@open-pencil/vue'
-import AppButton from '@/components/ui/AppButton.vue'
-import Tip from '@/components/ui/Tip.vue'
+import AppButton from '@/components/ui/button/AppButton.vue'
+import Tip from '@/components/ui/overlay/Tip.vue'
 import { tv } from 'tailwind-variants'
-import iconButtonTheme from '@/theme/icon-button'
-import IconButton from '@/components/ui/IconButton.vue'
-import { menuItem, useMenuUI } from '@/components/ui/menu'
+import iconButtonTheme from '@/theme/button/icon-button'
+import IconButton from '@/components/ui/button/IconButton.vue'
+import { menuItem, useMenuUI } from '@/components/ui/menu/menu'
 import { chatHistoryTheme } from '@/theme/chat/history'
 
 const {

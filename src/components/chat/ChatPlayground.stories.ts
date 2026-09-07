@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from '@storybook/vue3-vite'
 import { TooltipProvider } from 'reka-ui'
 import { expect, userEvent, within } from 'storybook/test'
 
-import AppButton from '@/components/ui/AppButton.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
+import AppButton from '@/components/ui/button/AppButton.vue'
+import AppSelect from '@/components/ui/select/AppSelect.vue'
 
 import ChatComposer from './ChatComposer.vue'
 import ChatHistory from './ChatHistory.vue'
