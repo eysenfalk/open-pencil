@@ -135,6 +135,15 @@ export class HarnessChatTransport implements ChatTransport<UIMessage> {
     return null
   }
 
+  async stop(): Promise<void> {
+    if (this.destroyed) return
+    if (this.sessionCreated) {
+      await this.request({ method: 'session.stop', params: { sessionId: this.sessionId } })
+      this.sessionCreated = false
+    }
+    await this.destroy()
+  }
+
   async destroy(): Promise<void> {
     if (this.destroyed) return
     this.destroyed = true

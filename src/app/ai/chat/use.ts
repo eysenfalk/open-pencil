@@ -2,6 +2,7 @@ import { ref } from 'vue'
 
 import { IS_BROWSER } from '@open-pencil/core/constants'
 
+import { createConversationHistory } from '@/app/ai/chat/history/controller'
 import {
   apiKeyStatus,
   browserCredentialsRemembered,
@@ -42,6 +43,16 @@ const chatSession = createChatSessionManager({
   getActiveEditorStore
 })
 
+const history = createConversationHistory({
+  getEditor: getActiveEditorStore,
+  ensureChat: chatSession.ensureChat,
+  resetChat: chatSession.resetChat,
+  backend: () => {
+    if (isACPProvider.value) return 'acp'
+    return isHarnessProvider.value ? 'harness' : 'direct'
+  }
+})
+
 registerAIChatEffects(chatSession.markTransportDirty)
 
 if (IS_BROWSER) {
@@ -70,8 +81,9 @@ export function useAIChat() {
     setUnsplashKey,
     activeTab,
     isConfigured,
-    ensureChat: chatSession.ensureChat,
-    resetChat: chatSession.resetChat,
+    history,
+    ensureChat: history.ensureChat,
+    resetChat: history.newChat,
     chatFailure: chatSession.failure,
     clearChatFailure: chatSession.clearFailure
   }

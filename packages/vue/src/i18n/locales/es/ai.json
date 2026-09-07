@@ -115,5 +115,20 @@
   "connectProvider": "Conecta un proveedor de IA para empezar a chatear.",
   "getProviderAPIKey": "Obtener una clave API de {provider} →",
   "provider": "Proveedor de IA",
-  "modelsTitle": "Modelos"
+  "modelsTitle": "Modelos",
+  "chatHistory": "Historial de chats",
+  "newChat": "Nuevo chat",
+  "allChats": "Todos los chats",
+  "renameChat": "Renombrar",
+  "deleteChat": "Eliminar",
+  "chatTitle": "Título del chat",
+  "saveChatTitle": "Guardar",
+  "cancelChatAction": "Cancelar",
+  "deleteChatConfirmation": "¿Eliminar este chat permanentemente?",
+  "chatDocumentHint": "Abre el documento del chat para continuar.",
+  "chatReadOnly": "Este chat pertenece a otro documento. Ábrelo para continuar.",
+  "chatAgentReadOnly": "La conversación del agente está guardada, pero todavía no se puede reanudar su sesión aquí. Inicia un nuevo chat.",
+  "chatStorageFailed": "No se pudo guardar el historial. Mantén esta ventana abierta e inténtalo de nuevo.",
+  "chatHistoryFailed": "No se pudo actualizar el historial. Inténtalo de nuevo.",
+  "chatInterrupted": "Esta respuesta se interrumpió."
 }

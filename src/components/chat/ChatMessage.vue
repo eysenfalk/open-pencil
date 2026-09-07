@@ -5,6 +5,7 @@ import { isReasoningUIPart, isTextUIPart, isToolUIPart, getToolName } from 'ai'
 import { CollapsibleContent, CollapsibleRoot, CollapsibleTrigger } from 'reka-ui'
 import { useI18n, vTestId } from '@open-pencil/vue'
 
+import type { AttachmentPresentation } from '@/app/ai/attachment/presentation/types'
 import { attachmentsForMessage } from '@/app/ai/attachment/presentation/store'
 import { visibleUserMessageText } from '@/app/ai/chat/presentation'
 import AttachmentList from '@/components/chat/attachment/AttachmentList.vue'
@@ -15,13 +16,19 @@ import { classifyToolState } from './tool-state'
 
 import type { UIDataTypes, UIMessage, UIMessagePart, UITools } from 'ai'
 
-const { message, streaming = false } = defineProps<{
+const {
+  message,
+  streaming = false,
+  presentation
+} = defineProps<{
   message: UIMessage
   streaming?: boolean
+  presentation?: { text?: string; attachments?: AttachmentPresentation[] }
 }>()
 const { ai } = useI18n()
 const markdownMode = computed(() => (streaming ? 'streaming' : 'static'))
-const attachments = attachmentsForMessage(message.id)
+const storedAttachments = attachmentsForMessage(message.id)
+const attachments = computed(() => presentation?.attachments ?? storedAttachments.value)
 const assistantText = computed(() =>
   message.parts
     .filter(isTextUIPart)
@@ -175,6 +182,7 @@ function partKey(part: UIMessagePart<UIDataTypes, UITools>, index: number): stri
           class="rounded-xl rounded-br-md bg-accent px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap text-white"
         >
           {{
+            presentation?.text ??
             visibleUserMessageText(
               message.id,
               message.parts

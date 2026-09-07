@@ -115,5 +115,20 @@
   "connectProvider": "Collega un provider AI per iniziare a chattare.",
   "getProviderAPIKey": "Ottieni una chiave API {provider} →",
   "provider": "Provider AI",
-  "modelsTitle": "Modelli"
+  "modelsTitle": "Modelli",
+  "chatHistory": "Cronologia chat",
+  "newChat": "Nuova chat",
+  "allChats": "Tutte le chat",
+  "renameChat": "Rinomina",
+  "deleteChat": "Elimina",
+  "chatTitle": "Titolo della chat",
+  "saveChatTitle": "Salva",
+  "cancelChatAction": "Annulla",
+  "deleteChatConfirmation": "Eliminare definitivamente questa chat?",
+  "chatDocumentHint": "Apri il documento della chat per continuare.",
+  "chatReadOnly": "Questa chat appartiene a un altro documento. Aprilo per continuare.",
+  "chatAgentReadOnly": "La conversazione con l’agente è salvata, ma non è ancora possibile riprendere la sessione qui. Avvia una nuova chat.",
+  "chatStorageFailed": "Impossibile salvare la cronologia. Tieni aperta questa finestra e riprova.",
+  "chatHistoryFailed": "Impossibile aggiornare la cronologia. Riprova.",
+  "chatInterrupted": "Questa risposta è stata interrotta."
 }
