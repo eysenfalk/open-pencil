@@ -40,7 +40,7 @@ export function materializeInstance(
   const prepared = new Map<InstanceOccurrence, ReturnType<typeof nodeChangeToProps>>()
   const validate = (current: InstanceOccurrence): void => {
     if (prepared.has(current)) throw new Error('Repeated or cyclic instance occurrence')
-    const converted = nodeChangeToProps(current.properties, blobs)
+    const converted = nodeChangeToProps(current.properties, blobs, 'occurrence')
     if (converted.nodeType === 'TEXT' && current.derivedSize) {
       converted.derivedLayout = { width: current.derivedSize.x, height: current.derivedSize.y }
     }

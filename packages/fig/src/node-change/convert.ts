@@ -4,6 +4,7 @@ import {
   DEFAULT_STROKE_MITER_LIMIT,
   styleToWeight
 } from '@open-pencil/scene-graph'
+import { createDefaultSourceMetadata } from '@open-pencil/scene-graph/node-defaults'
 import { parseVariantName } from '@open-pencil/scene-graph/variant-name'
 /* eslint-disable max-lines -- kiwi↔scene conversion helpers are tightly coupled */
 
@@ -617,7 +618,8 @@ export function shouldImportTextAsAutoSize(
 
 export function nodeChangeToProps(
   nc: NodeChange,
-  blobs: Uint8Array[]
+  blobs: Uint8Array[],
+  metadata: 'source' | 'occurrence' = 'source'
 ): Partial<SceneNode> & { nodeType: NodeType | 'DOCUMENT' | 'VARIABLE' } {
   const nodeType = resolveNodeType(nc)
 
@@ -627,7 +629,8 @@ export function nodeChangeToProps(
   const props: Partial<SceneNode> & { nodeType: NodeType | 'DOCUMENT' | 'VARIABLE' } = {
     nodeType,
     name: nc.name ?? nodeType,
-    source: extractSourceMetadata(nc, blobs),
+    source:
+      metadata === 'source' ? extractSourceMetadata(nc, blobs) : extractOccurrenceMetadata(nc),
     ...convertFigmaTransformProps(nc),
     opacity: nc.opacity ?? 1,
     visible: nc.visible ?? true,
@@ -675,7 +678,7 @@ export function nodeChangeToProps(
     pluginRelaunchData: extractPluginRelaunchData(nc),
     clipsContent: nc.frameMaskDisabled === false && nc.resizeToFit !== true,
     componentId: extractSymbolId(nc),
-    componentPropertyDefinitions: extractComponentPropertyDefs(nc),
+    componentPropertyDefinitions: nodeType === 'INSTANCE' ? [] : extractComponentPropertyDefs(nc),
     componentPropertyReferences: extractComponentPropertyRefs(nc),
     componentPropertyAssignments: extractComponentPropertyAssignments(nc),
     componentPropertyValues: extractComponentPropertyValues(nc),
@@ -944,6 +947,12 @@ function extractFigmaLayoutMetadata(nc: NodeChange): SceneNode['source']['fig'][
     bordersTakeSpace: nc.bordersTakeSpace as boolean | undefined,
     stackReverseZIndex: nc.stackReverseZIndex as boolean | undefined
   }
+}
+
+function extractOccurrenceMetadata(nc: NodeChange): SceneNode['source'] {
+  const source = createDefaultSourceMetadata()
+  source.fig.layout = extractFigmaLayoutMetadata(nc)
+  return source
 }
 
 function extractSourceMetadata(nc: NodeChange, blobs: Uint8Array[]): SceneNode['source'] {
