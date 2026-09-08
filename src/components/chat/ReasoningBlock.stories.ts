@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
 
 import type { ReasoningDisplay } from '@/app/settings/preferences/store'
+
 import ReasoningBlock from './ReasoningBlock.vue'
 
 interface Args {
