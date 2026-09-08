@@ -46,4 +46,42 @@ describe('native test credential isolation', () => {
     )
     assert.equal(await $('button=Retry access').isExisting(), false)
   })
+
+  it('shows a paused section after denial and hides it after retry', async function () {
+    this.timeout(180_000)
+    const denied = await browser.execute(async () => {
+      const reference = { integrationId: 'native-test', profileId: 'denial', field: 'api-key' }
+      try {
+        await window.__TAURI__.core.invoke('credential_write', {
+          reference,
+          value: 'open-pencil-native-test-denied'
+        })
+        return false
+      } catch {
+        return true
+      }
+    })
+    assert.equal(denied, true)
+    assert.equal(await $('[data-test-id="settings-general-panel"]').isDisplayed(), true)
+    const retry = await $('button=Retry access')
+    await retry.waitForExist()
+    await retry.scrollIntoView()
+    await browser.execute(() => {
+      const panel = document.querySelector('[data-test-id="settings-general-panel"]')
+      if (panel?.parentElement) panel.parentElement.scrollTop = panel.parentElement.scrollHeight
+    })
+    await retry.click()
+    await browser.waitUntil(async () => !(await $('button=Retry access').isExisting()))
+    assert.equal(
+      await browser.execute(() =>
+        window.__TAURI__.core.invoke<boolean>('credential_access_paused')
+      ),
+      false
+    )
+    await browser.execute(async () => {
+      const reference = { integrationId: 'native-test', profileId: 'retry', field: 'api-key' }
+      await window.__TAURI__.core.invoke('credential_write', { reference, value: 'disposable' })
+      await window.__TAURI__.core.invoke('credential_remove', { reference })
+    })
+  })
 })

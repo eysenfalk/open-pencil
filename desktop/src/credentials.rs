@@ -1,4 +1,5 @@
 use std::sync::Mutex;
+use tauri::Emitter;
 
 // Serialize all native operations, including temporary process-wide macOS UI suppression.
 static CREDENTIAL_ACCESS: Mutex<Option<CredentialErrorCode>> = Mutex::new(None);
@@ -145,6 +146,10 @@ impl CredentialBackend for NativeCredentialBackend {
             .cloned())
     }
     fn write(&self, account: &str, value: &str) -> Result<(), BackendError> {
+        // Reserved fixture value in the memory-only native-test backend.
+        if value == "open-pencil-native-test-denied" {
+            return Err(BackendError::Locked);
+        }
         TEST_CREDENTIALS
             .lock()
             .map_err(|_| BackendError::Failed)?
@@ -342,36 +347,49 @@ pub async fn credential_status(
     .map_err(|_| public_error(BackendError::Failed))?
 }
 
+async fn interactive_operation<T: Send + 'static>(
+    app: tauri::AppHandle,
+    operation: impl FnOnce() -> Result<T, CredentialError> + Send + 'static,
+) -> Result<T, CredentialError> {
+    let result =
+        tauri::async_runtime::spawn_blocking(move || credential_operation(true, operation))
+            .await
+            .map_err(|_| public_error(BackendError::Failed))?;
+    if let Err(error) = app.emit("credential-access-changed", ()) {
+        eprintln!("Could not notify credential access change: {error}");
+    }
+    result
+}
+
 #[tauri::command]
-pub async fn credential_read(reference: CredentialRef) -> Result<Option<String>, CredentialError> {
-    tauri::async_runtime::spawn_blocking(move || {
-        credential_operation(true, || read_with(&NativeCredentialBackend, &reference))
-    })
-    .await
-    .map_err(|_| public_error(BackendError::Failed))?
+pub async fn credential_read(
+    app: tauri::AppHandle,
+    reference: CredentialRef,
+) -> Result<Option<String>, CredentialError> {
+    interactive_operation(app, move || read_with(&NativeCredentialBackend, &reference)).await
 }
 
 #[tauri::command]
 pub async fn credential_write(
+    app: tauri::AppHandle,
     reference: CredentialRef,
     value: String,
 ) -> Result<(), CredentialError> {
-    tauri::async_runtime::spawn_blocking(move || {
-        credential_operation(true, || {
-            write_with(&NativeCredentialBackend, &reference, &value)
-        })
+    interactive_operation(app, move || {
+        write_with(&NativeCredentialBackend, &reference, &value)
     })
     .await
-    .map_err(|_| public_error(BackendError::Failed))?
 }
 
 #[tauri::command]
-pub async fn credential_remove(reference: CredentialRef) -> Result<(), CredentialError> {
-    tauri::async_runtime::spawn_blocking(move || {
-        credential_operation(true, || remove_with(&NativeCredentialBackend, &reference))
+pub async fn credential_remove(
+    app: tauri::AppHandle,
+    reference: CredentialRef,
+) -> Result<(), CredentialError> {
+    interactive_operation(app, move || {
+        remove_with(&NativeCredentialBackend, &reference)
     })
     .await
-    .map_err(|_| public_error(BackendError::Failed))?
 }
 
 #[cfg(test)]
