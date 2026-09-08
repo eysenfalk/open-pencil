@@ -1,25 +1,20 @@
-import type { Chat } from '@ai-sdk/vue'
-import { watchThrottled } from '@vueuse/core'
 import type { UIMessage } from 'ai'
-import { ref, shallowRef, watch } from 'vue'
-
-import { designModelProfile } from '@/app/ai/models'
+import { ref, shallowRef } from 'vue'
 
 import { chatDocumentId, resolveChatDocumentId, type ChatDocumentEditor } from './document'
 import { createConversationStore } from './idb'
-import { fallbackTitle, restoreMessages, snapshotMessages } from './messages'
-import type { Conversation, ConversationMeta, ConversationStore } from './types'
+import { restoreMessages } from './messages'
+import { createHistoryPersistence } from './persistence'
+import { createHistorySession } from './session'
+import type {
+  Conversation,
+  ConversationMeta,
+  ConversationStore,
+  HistoryChat,
+  HistoryRuntime
+} from './types'
 
-type HistoryChat = Pick<Chat<UIMessage>, 'messages' | 'status' | 'stop'>
-
-interface HistoryRuntime<TChat extends HistoryChat> {
-  getEditor(): ChatDocumentEditor
-  ensureChat(messages?: UIMessage[], sessionId?: string): Promise<TChat | null>
-  resetChat(): Promise<void>
-  backend(): ConversationMeta['backend']
-}
-
-/** Owns persisted conversation state independently of provider availability. */
+/** Coordinates document ownership and serialized public conversation actions. */
 export function createConversationHistory<TChat extends HistoryChat>(
   runtime: HistoryRuntime<TChat>,
   store: ConversationStore = createConversationStore()
@@ -27,17 +22,23 @@ export function createConversationHistory<TChat extends HistoryChat>(
   const current = shallowRef<Conversation | null>(null)
   const messages = shallowRef<UIMessage[]>([])
   const conversations = ref<ConversationMeta[]>([])
-  const storageError = ref(false)
-  const interrupted = ref(false)
   const readOnly = ref(false)
   const busy = ref(false)
   let ownerRecoveryId: string | null = null
   let owner: ChatDocumentEditor | null = null
-  let generation = 0
-  let live: HistoryChat | null = null
-  let stopWatch: (() => void) | undefined
-  let writes: Promise<void> = Promise.resolve()
   let operation: Promise<unknown> = Promise.resolve()
+  const session = createHistorySession(() => runtime.resetChat())
+  const { flush, storageError } = createHistoryPersistence({
+    store,
+    current,
+    messages,
+    readOnly,
+    refresh,
+    content: () => ({
+      messages: session.chat?.messages ?? messages.value,
+      interrupted: session.interrupted
+    })
+  })
 
   function serialize<T>(run: () => Promise<T>): Promise<T> {
     const next = operation.then(async () => {
@@ -55,57 +56,15 @@ export function createConversationHistory<TChat extends HistoryChat>(
   async function refresh() {
     conversations.value = await store.list()
   }
-
-  function persist() {
-    const conversation = current.value
-    if (!conversation || readOnly.value) return writes
-    const content = live?.messages ?? messages.value
-    if (content.length === 0 && conversation.titleSource === 'fallback') return writes
-    const snapshot: Conversation = {
-      ...conversation,
-      title: conversation.titleSource === 'fallback' ? fallbackTitle(content) : conversation.title,
-      updatedAt: new Date().toISOString(),
-      interrupted:
-        interrupted.value || live?.status === 'submitted' || live?.status === 'streaming',
-      messages: snapshotMessages(content)
-    }
-    current.value = snapshot
-    messages.value = content
-    writes = writes
-      .catch(() => undefined)
-      .then(async () => {
-        await store.write(snapshot)
-        await store.select(snapshot.documentId, snapshot.id)
-        return undefined
-      })
-      .then(async () => {
-        storageError.value = false
-        await refresh()
-        return undefined
-      })
-      .catch((error) => {
-        storageError.value = true
-        throw error
-      })
-    return writes
-  }
-
-  async function detach() {
-    interrupted.value ||= live?.status === 'submitted' || live?.status === 'streaming'
-    await live?.stop()
-    await persist()
-    generation++
-    stopWatch?.()
-    stopWatch = undefined
-    await runtime.resetChat()
-    live = null
+  function detach() {
+    return session.detach(flush)
   }
 
   async function activate(conversation: Conversation) {
     owner = runtime.getEditor()
     ownerRecoveryId = owner.getRecoveryId()
-    interrupted.value = conversation.interrupted
-    readOnly.value = conversation.documentId !== chatDocumentId(runtime.getEditor())
+    session.restoreInterrupted(conversation.interrupted)
+    readOnly.value = conversation.documentId !== chatDocumentId(owner)
     current.value = conversation
     messages.value = restoreMessages(conversation.messages)
     if (conversation.messages.length || conversation.titleSource !== 'fallback') {
@@ -113,10 +72,10 @@ export function createConversationHistory<TChat extends HistoryChat>(
     }
   }
 
-  async function create() {
+  async function createDraft() {
     const editor = runtime.getEditor()
     const now = new Date().toISOString()
-    const conversation: Conversation = {
+    await activate({
       id: crypto.randomUUID(),
       documentId: await resolveChatDocumentId(editor, store),
       documentName: editor.state.documentName,
@@ -124,30 +83,36 @@ export function createConversationHistory<TChat extends HistoryChat>(
       titleSource: 'fallback',
       createdAt: now,
       updatedAt: now,
-      profileId: designModelProfile.value?.id ?? null,
+      profileId: runtime.profileId(),
       backend: runtime.backend(),
       interrupted: false,
       messages: []
-    }
-    await activate(conversation)
+    })
+    await refresh()
+  }
+
+  function isIdentityChange(editor: ChatDocumentEditor, documentId: string) {
+    return (
+      owner === editor &&
+      ownerRecoveryId === editor.getRecoveryId() &&
+      current.value &&
+      !readOnly.value &&
+      current.value.documentId !== documentId
+    )
+  }
+
+  async function reassignDocument(editor: ChatDocumentEditor, documentId: string) {
+    if (!current.value) return
+    await flush()
+    await store.reassignDocument(current.value.documentId, documentId, editor.state.documentName)
+    current.value = { ...current.value, documentId, documentName: editor.state.documentName }
     await refresh()
   }
 
   async function loadDocument() {
     const editor = runtime.getEditor()
     const documentId = await resolveChatDocumentId(editor, store)
-    if (
-      owner === editor &&
-      ownerRecoveryId === editor.getRecoveryId() &&
-      current.value &&
-      !readOnly.value &&
-      current.value.documentId !== documentId
-    ) {
-      await persist()
-      await store.reassignDocument(current.value.documentId, documentId, editor.state.documentName)
-      current.value = { ...current.value, documentId, documentName: editor.state.documentName }
-      await refresh()
-    }
+    if (isIdentityChange(editor, documentId)) await reassignDocument(editor, documentId)
     if (current.value?.documentId === documentId) {
       readOnly.value = false
       owner = editor
@@ -158,7 +123,7 @@ export function createConversationHistory<TChat extends HistoryChat>(
     const id = await store.getSelected(documentId)
     const conversation = id ? await store.read(id) : null
     if (conversation?.documentId === documentId) await activate(conversation)
-    else await create()
+    else await createDraft()
     await refresh()
   }
 
@@ -166,10 +131,10 @@ export function createConversationHistory<TChat extends HistoryChat>(
     return serialize(async () => {
       if (readOnly.value && owner === runtime.getEditor()) return null
       await loadDocument()
-      // Restoring the transcript is not equivalent to restoring an external agent session.
+      // A restored transcript does not restore an external agent session.
       if (
         current.value?.messages.length &&
-        !live &&
+        !session.chat &&
         (runtime.backend() !== 'direct' || current.value.backend !== 'direct')
       )
         return null
@@ -180,79 +145,66 @@ export function createConversationHistory<TChat extends HistoryChat>(
         await runtime.resetChat()
         return null
       }
-      if (next && live !== next) {
-        stopWatch?.()
-        live = next
-        const activeGeneration = ++generation
-        const stopMessages = watchThrottled(
-          () => next.messages,
-          () => {
-            if (live === next && generation === activeGeneration)
-              void persist().catch(() => undefined)
-          },
-          { deep: true, throttle: 500, trailing: true }
-        )
-        const stopStatus = watch(
-          () => next.status,
-          () => {
-            if (next.status === 'submitted') interrupted.value = false
-            if (live === next && generation === activeGeneration)
-              void persist().catch(() => undefined)
-          }
-        )
-        stopWatch = () => {
-          stopMessages()
-          stopStatus()
-        }
-      }
+      if (next) session.attach(next, flush)
       return next
     })
   }
 
+  function initialize() {
+    return serialize(loadDocument)
+  }
+  function newChat() {
+    return serialize(async () => {
+      await detach()
+      await createDraft()
+    })
+  }
+  function open(id: string) {
+    return serialize(async () => {
+      if (current.value?.id === id) return
+      await detach()
+      const conversation = await store.read(id)
+      if (conversation) await activate(conversation)
+    })
+  }
+  function rename(id: string, title: string) {
+    return serialize(async () => {
+      if (current.value?.id === id && current.value.messages.length === 0 && title.trim()) {
+        current.value = { ...current.value, title: title.trim(), titleSource: 'manual' }
+        await flush()
+      }
+      await store.rename(id, title)
+      if (current.value?.id === id && title.trim())
+        current.value = { ...current.value, title: title.trim(), titleSource: 'manual' }
+      await refresh()
+    })
+  }
+  function remove(id: string) {
+    return serialize(async () => {
+      if (current.value?.id === id) {
+        await detach()
+        current.value = null
+        messages.value = []
+      }
+      await store.remove(id)
+      if (!current.value) await createDraft()
+      await refresh()
+    })
+  }
+
   return {
-    readOnly,
     current,
     messages,
     conversations,
-    storageError,
+    readOnly,
     busy,
+    storageError,
+    initialize,
     ensureChat,
-    initialize: () => serialize(loadDocument),
-    flush: persist,
-    newChat: () =>
-      serialize(async () => {
-        await detach()
-        await create()
-      }),
-    open: (id: string) =>
-      serialize(async () => {
-        if (current.value?.id === id) return
-        await detach()
-        const conversation = await store.read(id)
-        if (!conversation) return
-        await activate(conversation)
-      }),
-    rename: (id: string, title: string) =>
-      serialize(async () => {
-        if (current.value?.id === id && current.value.messages.length === 0 && title.trim()) {
-          current.value = { ...current.value, title: title.trim(), titleSource: 'manual' }
-          await persist()
-        }
-        await store.rename(id, title)
-        if (current.value?.id === id && title.trim())
-          current.value = { ...current.value, title: title.trim(), titleSource: 'manual' }
-        await refresh()
-      }),
-    remove: (id: string) =>
-      serialize(async () => {
-        if (current.value?.id === id) {
-          await detach()
-          current.value = null
-          messages.value = []
-        }
-        await store.remove(id)
-        if (!current.value) await create()
-        await refresh()
-      })
+    flush,
+    newChat,
+    open,
+    rename,
+    remove
   }
 }

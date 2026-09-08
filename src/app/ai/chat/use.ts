@@ -22,6 +22,7 @@ import {
   setAPIKey
 } from '@/app/ai/chat/storage'
 import { createChatSessionManager } from '@/app/ai/chat/transports'
+import { designModelProfile } from '@/app/ai/models'
 import { exposeChatTransportOverride } from '@/app/browser-bridge'
 import { getActiveEditorStore } from '@/app/editor/active-store'
 import {
@@ -44,6 +45,7 @@ const chatSession = createChatSessionManager({
 })
 
 const history = createConversationHistory({
+  profileId: () => designModelProfile.value?.id ?? null,
   getEditor: getActiveEditorStore,
   ensureChat: chatSession.ensureChat,
   resetChat: chatSession.resetChat,

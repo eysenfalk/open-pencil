@@ -1,6 +1,19 @@
+import type { Chat } from '@ai-sdk/vue'
 import type { UIMessage } from 'ai'
 
 import type { AttachmentPresentation } from '@/app/ai/attachment/presentation/types'
+
+import type { ChatDocumentEditor } from './document'
+
+export type HistoryChat = Pick<Chat<UIMessage>, 'messages' | 'status' | 'stop'>
+
+export interface HistoryRuntime<TChat extends HistoryChat> {
+  getEditor(): ChatDocumentEditor
+  ensureChat(messages?: UIMessage[], sessionId?: string): Promise<TChat | null>
+  resetChat(): Promise<void>
+  backend(): ConversationMeta['backend']
+  profileId(): string | null
+}
 
 export interface ConversationMeta {
   id: string
