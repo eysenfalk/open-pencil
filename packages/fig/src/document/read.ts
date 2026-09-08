@@ -1,6 +1,7 @@
 import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 import { guidToString } from '@open-pencil/kiwi/fig/guid'
 
+import { parseFigBuffer } from '../archive'
 import {
   createOccurrenceInterpreter,
   type InterpretInstanceOptions
@@ -15,9 +16,25 @@ import { inheritComponentPropertyDefinitions } from './property-inheritance'
 
 /** Indexed source document. Resources remain separate from scene occurrences. */
 export function createDocumentReader(source: readonly NodeChange[]) {
+  return createReader(source, 'copy')
+}
+
+/** Parse into exclusively owned records; callers never receive the mutable source index. */
+export function createArchiveDocumentReader(bytes: ArrayBuffer) {
+  const parsed = parseFigBuffer(bytes)
+  return {
+    reader: createReader(parsed.nodeChanges, 'transfer'),
+    blobs: parsed.blobs,
+    images: parsed.images
+  }
+}
+
+function createReader(source: readonly NodeChange[], ownership: 'copy' | 'transfer') {
   const bindingDiagnostics: BindingReferenceDiagnostic[] = []
-  const changes = resolveDocumentBindingReferences(source, (diagnostic) =>
-    bindingDiagnostics.push(diagnostic)
+  const changes = resolveDocumentBindingReferences(
+    source,
+    (diagnostic) => bindingDiagnostics.push(diagnostic),
+    ownership
   )
   inheritComponentPropertyDefinitions(changes)
   const resources = changes.filter(
@@ -53,10 +70,14 @@ export function createDocumentReader(source: readonly NodeChange[]) {
     })
   const pageIds = new Set(pages.map((page) => page.id))
   return {
-    sourceRecords: changes,
+    get sourceRecords() {
+      return structuredClone(changes)
+    },
     dependencyClosure: closure,
     pages,
-    resources,
+    get resources() {
+      return structuredClone(resources)
+    },
     bindingDiagnostics,
     readPage(id: string, options: InterpretInstanceOptions = {}) {
       if (!pageIds.has(id)) throw new Error(`Unknown page ${id}`)

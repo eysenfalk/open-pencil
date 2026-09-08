@@ -29,11 +29,12 @@ function visitChildren(
 /** Normalize supported binding references without mutating archive records or effective values. */
 export function resolveDocumentBindingReferences(
   changes: readonly NodeChange[],
-  report: (diagnostic: BindingReferenceDiagnostic) => void
+  report: (diagnostic: BindingReferenceDiagnostic) => void,
+  ownership: 'copy' | 'transfer' = 'copy'
 ): NodeChange[] {
   const resolve = createResourceResolver(changes)
   return changes.map((source) => {
-    const node = structuredClone(source)
+    const node = ownership === 'transfer' ? source : structuredClone(source)
     const sourceId = source.guid ? `${source.guid.sessionID}:${source.guid.localID}` : 'unknown'
     const normalize = (
       reference: NodeChange['variableSetID'],

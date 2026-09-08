@@ -68,5 +68,12 @@ test('reads pages independently through one index with cross-page component expa
   expect(graph.getNode(componentId)?.parentId).toBe(sources.get('1:2'))
   expect([...graph.getAllNodes()].filter((node) => node.type === 'COMPONENT')).toHaveLength(1)
   expect(graph.getChildren(instanceId)[0].text).toBe('Label')
+  const exportedSources = reader.sourceRecords
+  const exportedText = exportedSources.find((node) => node.guid?.localID === 5)
+  if (!exportedText?.textData) throw new Error('Missing copied text')
+  exportedText.textData.characters = 'Mutated snapshot'
+  expect(reader.readPage('1:3').children[0].children[0].properties.textData?.characters).toBe(
+    'Label'
+  )
   expect(() => reader.readPage('1:4')).toThrow('Unknown page')
 })

@@ -12,7 +12,7 @@ import { nodeChangeToProps } from '../node-change'
 import type { BindingReferenceDiagnostic } from './binding-references'
 import { linkComponentPropertyValues } from './component-values'
 import { applyDocumentLayoutBindings } from './layout-bindings'
-import { createDocumentReader } from './read'
+import { createArchiveDocumentReader, createDocumentReader } from './read'
 import { materializeVariableResources } from './variables'
 
 export interface DocumentAssemblyOptions extends InterpretInstanceOptions {
@@ -28,7 +28,20 @@ export function materializeDocument(
   blobs: Uint8Array[] = [],
   options: DocumentAssemblyOptions = {}
 ) {
-  const reader = createDocumentReader(changes)
+  return materializeReader(createDocumentReader(changes), blobs, options)
+}
+
+/** Own parsed archive records; do not create a second full source tree. */
+export function materializeFigArchive(bytes: ArrayBuffer, options: DocumentAssemblyOptions = {}) {
+  const { reader, blobs, images } = createArchiveDocumentReader(bytes)
+  return materializeReader(reader, blobs, { ...options, images: options.images ?? new Map(images) })
+}
+
+function materializeReader(
+  reader: ReturnType<typeof createDocumentReader>,
+  blobs: Uint8Array[],
+  options: DocumentAssemblyOptions
+) {
   for (const diagnostic of reader.bindingDiagnostics) {
     if (!options.onUnresolvedBinding)
       throw new Error(`Unresolved binding ${diagnostic.sourceId}: ${diagnostic.field}`)
