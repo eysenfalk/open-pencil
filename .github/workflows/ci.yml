@@ -55,7 +55,7 @@ jobs:
       - uses: ./.github/actions/setup-bun
 
       - name: Build and validate installed package artifacts with Node and Bun
-        run: bun run test:packages
+        run: bun run build:packages && bun run test:packages
 
       - name: Detect unused dependencies and files
         run: bun run check:deps
@@ -73,6 +73,9 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-bun
+
+      - name: Build package dependencies
+        run: bun run build:packages
 
       - name: Validate translations
         run: bun run check:i18n
@@ -155,8 +158,8 @@ jobs:
         with:
           lfs: 'true'
 
-      - name: Build shared Core test dependency
-        run: bun --filter @open-pencil/core build
+      - name: Build shared package test dependencies
+        run: bun run build:packages
 
       - name: Run ${{ matrix.group }} engine tests
         shell: bash
