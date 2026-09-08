@@ -6,6 +6,68 @@ import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
 
 import { guid } from '../helpers/guid'
 
+test('explicit swaps preserve references owned by the enclosing component', () => {
+  const refs = [{ defID: guid(80), componentPropNodeField: 'VISIBLE' }]
+  const changes = [
+    { guid: guid(1), type: 'SYMBOL' },
+    {
+      guid: guid(2),
+      type: 'INSTANCE',
+      parentIndex: { guid: guid(1), position: '!' },
+      componentPropRefs: refs,
+      symbolData: { symbolID: guid(3) }
+    },
+    { guid: guid(3), type: 'SYMBOL' },
+    { guid: guid(4), type: 'SYMBOL' },
+    {
+      guid: guid(5),
+      type: 'INSTANCE',
+      symbolData: {
+        symbolID: guid(1),
+        symbolOverrides: [{ guidPath: { guids: [guid(2)] }, overriddenSymbolID: guid(4) }]
+      }
+    }
+  ] as NodeChange[]
+  const child = interpretInstance(changes, '1:5').children[0]
+  expect(child.mainComponentId).toBe('1:4')
+  expect(child.properties.componentPropRefs).toEqual(refs)
+  expect(child.properties.componentPropRefs).not.toBe(refs)
+})
+
+test('binding swaps retain source-root claims without mapping old children into the replacement', () => {
+  const changes = [
+    {
+      guid: guid(1),
+      type: 'SYMBOL',
+      componentPropDefs: [
+        { id: guid(80), initialValue: { guidValue: guid(3) }, type: 'INSTANCE_SWAP', name: 'Icon' }
+      ]
+    },
+    {
+      guid: guid(2),
+      type: 'INSTANCE',
+      parentIndex: { guid: guid(1), position: '!' },
+      componentPropRefs: [{ defID: guid(80), componentPropNodeField: 'OVERRIDDEN_SYMBOL_ID' }],
+      symbolData: {
+        symbolID: guid(3),
+        symbolOverrides: [{ guidPath: { guids: [guid(90)] }, opacity: 0.4 }]
+      }
+    },
+    { guid: guid(3), type: 'SYMBOL', overrideKey: guid(90) },
+    { guid: guid(4), type: 'SYMBOL', overrideKey: guid(91) },
+    {
+      guid: guid(5),
+      type: 'INSTANCE',
+      symbolData: { symbolID: guid(1) },
+      componentPropAssignments: [{ defID: guid(80), value: { guidValue: guid(4) } }]
+    }
+  ] as NodeChange[]
+  const child = interpretInstance(changes, '1:5').children[0]
+  expect(child.mainComponentId).toBe('1:4')
+  expect(child.properties.opacity).toBe(0.4)
+  expect(child.propertyClaims[0].path).toEqual([guid(90)])
+})
+
 test('component root-key assignments configure children before expansion', () => {
   const changes = [
     {

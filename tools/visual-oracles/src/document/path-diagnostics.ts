@@ -10,7 +10,12 @@ export function summarizePathDiagnostics(
 ): CountedPathDiagnostic[] {
   const groups = new Map<string, CountedPathDiagnostic>()
   for (const diagnostic of diagnostics) {
-    const key = JSON.stringify([diagnostic.ownerId, diagnostic.path, diagnostic.reason])
+    const key = JSON.stringify([
+      diagnostic.ownerId,
+      diagnostic.mainComponentId,
+      diagnostic.path,
+      diagnostic.reason
+    ])
     const previous = groups.get(key)
     if (previous) previous.occurrences++
     else groups.set(key, { ...structuredClone(diagnostic), occurrences: 1 })

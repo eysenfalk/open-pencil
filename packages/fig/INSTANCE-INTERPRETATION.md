@@ -90,9 +90,12 @@ Accordingly, the Gold test expects an edited first badge to retain its edit and 
 
 The replacement now indexes pages, plans component dependencies, allocates source-owned
 component/container identities before population, and assembles full pages without invoking
-the old importer. Gold can be assembled with unresolved-path reporting enabled. This is not
-fidelity acceptance: the 47,102 callbacks observed during assembly include repeated expansion
-and must be classified rather than treated as unique errors.
+the old importer. Gold can be assembled with unresolved-path reporting enabled. The original
+47,102 callbacks included missed component-root keys, not merely stale descendants. Root
+addressing and source-root preservation across swaps reduced this to 1,358 callbacks in 23
+owner/effective-component/path/reason groups in the latest diagnostic capture. These counts
+are evaluation reports, not unique broken scene occurrences; descendant applicability remains
+under investigation.
 
 Variable collections, literal values and versioned references are converted. Supported scalar,
 paint and mode references are normalized before interpretation, including nested override
@@ -130,7 +133,8 @@ differences, and diagnostics. It exits nonzero for any difference. This compares
 properties, not paint, pixels, or successful layout recomputation.
 
 The latest Gold comparison has 887 nodes on both sides, no structural/semantic/visible-geometry
-differences, and 335 hidden-geometry differences. Unresolved-path callbacks remain unclassified.
+differences, and 338 hidden-geometry differences. This baseline describes the imported scene,
+not the edited document after export.
 
 ## Saved text rendering
 
@@ -148,12 +152,54 @@ The saved-glyph visual regression runs against an isolated worktree app and MCP 
 Existing typography/text-path snapshot differences produce identical actual images with and
 without this rendering change; their baselines are not updated by this work.
 
+## Editable-document acceptance
+
+The full-document Gold test now uses the new reader on both sides of export. It covers an
+Avatar Boolean property edit, undo/redo, preserved `avatar04`/`avatar05`/`avatar06` identities,
+and another property edit/undo after reopening. It passes locally. Source correspondence—not
+sibling index—locates component-property targets; population restores saved child order.
+Swap expansion preserves occurrence-owned component-property references.
+
+Export fixes under validation prevent shared-style double emission, serialize nested component
+swaps, use consistent sibling positions, and map INSTANCE_SWAP property values to graph IDs.
+These are not evidence that all component-property metadata exports correctly.
+
+Typed `varValue` defaults/assignments and `PROP_REF` parameter entries now survive export.
+Figma's Boolean property action was verified by changing the reopened second badge's Avatar
+property, then reading visibility in a subsequent RPC after dependent state settled. Variable
+and property-reference parameter entries must coexist; emitting only one loses the other.
+
+Root size overrides use the component override key and pre-scale size; placed dimensions stay
+separate. Explicit padding, text sizing/grow, and axis-sizing/alignment claims are retained.
+Untouched FIG layout payloads preserve implicit-size semantics; explicitly edited fields use
+current graph values during export. Remote text style claims retain asset key/version references.
+This resolves the tested typography, input width, and stepper collapse but is not complete
+style/link/editing fidelity.
+
+### Figma-rendered round-trip evidence
+
+Both comparisons use full 1270×760 PNGs at 1× in sRGB, rendered by Figma on both sides. The
+edited oracle is a temporary clone of the original with the same Avatar=false edit; the clone
+was removed afterward. Percentages are ImageMagick AE at 2% fuzz, not acceptance thresholds.
+
+| Case | Reopened file key | Differing pixels | Fraction | Avatar visibility | Input size |
+| --- | --- | ---: | ---: | --- | --- |
+| Unedited | `KuB2hdEwERnJGuLbuhW5I4` | 1,948 | 0.202% | true, true, true | 393.566742 × 39.380260 |
+| First avatar hidden | `yCY7fYpOm8DRgRWCj8pt1x` | 1,861 | 0.193% | false, true, true | 378.422394 × 39.380260 |
+
+The original edited input is 378.422363 × 39.380260. Remaining visible differences include
+badge/avatar corners, calendar arrows, upload-icon details, and toolbar-button styling. The
+explicit test rename still does not survive Figma reopening. These results supersede the
+previous broken-layout screenshots; they do not establish exact visual parity or readiness
+for production cutover. Captures currently live in temporary diagnostic artifacts and need
+maintained reproducible round-trip capture tooling.
+
 ## Remaining acceptance gaps
 
 - Complete ownership and precedence of provenance through inheritance, swaps, and re-expansion.
 - Materialization of all supported explicit/bound fields; current persistence coverage is partial.
 - Saved derived data versus editable layout provenance.
-- Gold undo/redo, reloaded avatar/component-property fidelity, and edited-output validation in Figma.
+- Figma-side component-property metadata/action fidelity, explicit-name persistence, and broader edit/undo coverage.
 - Direct render parity, unsupported-feature diagnostics, lazy/all-page equivalence, and resource/performance limits across the fixture corpus.
 
 Passing text or visibility tests alone does not establish a correct editable document or production readiness.

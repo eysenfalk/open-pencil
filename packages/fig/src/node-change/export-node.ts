@@ -58,6 +58,10 @@ export function buildAssetRefToVarGuidMap(
 }
 
 interface SceneNodeToKiwiContext {
+  styleReferences?: ReadonlyMap<
+    string,
+    { guid?: GUID; assetRef?: { key: string; version?: string } }
+  >
   graph: SceneGraph
   blobs: Uint8Array[]
   blobIndexByHex?: Map<string, number>
@@ -160,6 +164,29 @@ function componentPropertyValue(
     return guid ? { guidValue: guid } : { textValue: { characters: value } }
   }
   return { textValue: { characters: value } }
+}
+
+function componentPropertyVariableValue(
+  type: string,
+  value: string,
+  context: SceneNodeToKiwiContext,
+  localIdCounter: { value: number }
+) {
+  const legacy = componentPropertyValue(type, value, context, localIdCounter)
+  if (type === 'BOOLEAN')
+    return {
+      value: { boolValue: value === 'true' },
+      dataType: 'BOOLEAN',
+      resolvedDataType: 'BOOLEAN'
+    }
+  if (type === 'INSTANCE_SWAP' && 'guidValue' in legacy) {
+    return {
+      value: { symbolIdValue: { guid: legacy.guidValue } },
+      dataType: 'SYMBOL_ID',
+      resolvedDataType: 'SYMBOL_ID'
+    }
+  }
+  return { value: { textValue: value }, dataType: 'STRING', resolvedDataType: 'STRING' }
 }
 
 function parseGuidOrNull(value: string) {
@@ -398,6 +425,71 @@ function isDescendantOf(context: SceneNodeToKiwiContext, nodeId: string, ancesto
   return false
 }
 
+function exportedTextStyleReference(context: SceneNodeToKiwiContext, id: string) {
+  if (!context.styleReferences) {
+    const references = new Map<
+      string,
+      { guid?: GUID; assetRef?: { key: string; version?: string } }
+    >()
+    for (const node of context.graph.getAllNodes()) {
+      if (node.sharedStyleType !== 'TEXT' || !node.source.id) continue
+      const raw = effectiveFigmaRawNodeFields(node)
+      if (typeof raw.key !== 'string') continue
+      const assetRef = {
+        key: raw.key,
+        ...(typeof raw.version === 'string' ? { version: raw.version } : {})
+      }
+      references.set(node.source.id, { assetRef })
+    }
+    context.styleReferences = references
+  }
+  return context.styleReferences.get(id) ?? { guid: stringToGuid(id) }
+}
+
+function unscaledRootSize(instance: SceneNode, target: SceneNode): Vector {
+  const scale = target.id === instance.id ? (instance.source.fig.uniformScaleFactor ?? 1) : 1
+  if (!Number.isFinite(scale) || scale <= 0) throw new Error('Invalid instance uniform scale')
+  return { x: target.width / scale, y: target.height / scale }
+}
+
+const PADDING_OVERRIDE_FIELDS: Record<string, string> = {
+  paddingLeft: 'stackHorizontalPadding',
+  paddingRight: 'stackPaddingRight',
+  paddingTop: 'stackVerticalPadding',
+  paddingBottom: 'stackPaddingBottom'
+}
+
+function paddingOverride(
+  field: string,
+  value: unknown
+): Record<string, number | string> | undefined {
+  if (field === 'textAutoResize' && typeof value === 'string') return { textAutoResize: value }
+  if (
+    (field === 'primaryAxisSizing' || field === 'counterAxisSizing') &&
+    typeof value === 'string'
+  ) {
+    const key = field === 'primaryAxisSizing' ? 'stackPrimarySizing' : 'stackCounterSizing'
+    return { [key]: value === 'HUG' ? 'RESIZE_TO_FIT_WITH_IMPLICIT_SIZE' : 'FIXED' }
+  }
+  if (field === 'layoutAlignSelf' && typeof value === 'string')
+    return { stackChildAlignSelf: value }
+  if (field === 'layoutGrow' && typeof value === 'number') return { stackChildPrimaryGrow: value }
+  const rawField = PADDING_OVERRIDE_FIELDS[field]
+  if (!rawField || typeof value !== 'number') return undefined
+  return { [rawField]: value }
+}
+
+function exportedSwapOverride(
+  context: SceneNodeToKiwiContext,
+  target: SceneNode,
+  path: GUID[] | undefined,
+  counter: { value: number }
+): KiwiSymbolOverridePayload | undefined {
+  if (!path || target.type !== 'INSTANCE' || !target.componentId) return undefined
+  const component = getOrCreateNodeGuid(context, target.componentId, counter)
+  return component ? { guidPath: { guids: path }, overriddenSymbolID: component } : undefined
+}
+
 function serializeRuntimePropertyOverrides(
   context: SceneNodeToKiwiContext,
   instance: SceneNode,
@@ -405,6 +497,13 @@ function serializeRuntimePropertyOverrides(
 ): KiwiSymbolOverridePayload[] {
   const result: KiwiSymbolOverridePayload[] = []
   const address = (owner: SceneNode, target: SceneNode): GUID[] | undefined => {
+    if (target.id === owner.id && owner.componentId) {
+      const source = context.graph.getNode(owner.componentId)
+      const component =
+        (source?.overrideKey ? parseGuidOrNull(source.overrideKey) : null) ??
+        getOrCreateNodeGuid(context, owner.componentId, localIdCounter)
+      return component ? [component] : undefined
+    }
     const boundaries: SceneNode[] = []
     let parent = target.parentId ? context.graph.getNode(target.parentId) : undefined
     while (parent && parent.id !== owner.id) {
@@ -434,17 +533,67 @@ function serializeRuntimePropertyOverrides(
   }
   const collect = (owner: SceneNode): void => {
     forEachInstanceOverride(owner.instanceOverrides, (nodeId, field, value) => {
-      if ((field !== 'text' && field !== 'visible') || !nodeId) return
-      const target = context.graph.getNode(nodeId)
-      if (!target || !isDescendantOf(context, nodeId, instance.id)) return
+      if (
+        ![
+          'text',
+          'visible',
+          'componentId',
+          'width',
+          'height',
+          'textStyleId',
+          'fills',
+          'strokes',
+          'textAutoResize',
+          'layoutGrow',
+          'primaryAxisSizing',
+          'counterAxisSizing',
+          'layoutAlignSelf',
+          ...Object.keys(PADDING_OVERRIDE_FIELDS)
+        ].includes(field)
+      )
+        return
+      const targetId = nodeId || owner.id
+      const target = context.graph.getNode(targetId)
+      if (!target || (target.id !== instance.id && !isDescendantOf(context, targetId, instance.id)))
+        return
       const path = address(instance, target)
-      if (path)
+      if (!path) return
+      if (field === 'fills' || field === 'strokes') {
         result.push({
           guidPath: { guids: path },
-          ...(field === 'text'
-            ? { textData: { characters: typeof value === 'string' ? value : target.text } }
-            : { visible: target.visible })
+          ...(field === 'fills'
+            ? { fillPaints: target.fills.map((fill) => context.fillToKiwiPaint(fill)) }
+            : { strokePaints: createStrokePaints(context, target) })
         })
+        return
+      }
+      const padding = paddingOverride(field, value)
+      if (padding) {
+        result.push({ guidPath: { guids: path }, ...padding })
+        return
+      }
+      if (field === 'textStyleId' && target.textStyleId) {
+        result.push({
+          guidPath: { guids: path },
+          styleIdForText: exportedTextStyleReference(context, target.textStyleId)
+        })
+        return
+      }
+      if (field === 'width' || field === 'height') {
+        result.push({ guidPath: { guids: path }, size: unscaledRootSize(instance, target) })
+        return
+      }
+      if (field === 'componentId') {
+        const swap = exportedSwapOverride(context, target, path, localIdCounter)
+        if (swap) result.push(swap)
+        return
+      }
+      result.push({
+        guidPath: { guids: path },
+        ...(field === 'text'
+          ? { textData: { characters: typeof value === 'string' ? value : target.text } }
+          : { visible: target.visible })
+      })
     })
   }
   const visit = (node: SceneNode): void => {
@@ -452,43 +601,6 @@ function serializeRuntimePropertyOverrides(
     for (const child of context.graph.getChildren(node.id)) visit(child)
   }
   visit(instance)
-  return result
-}
-
-/**
- * Resolves the descendant-node identity a symbol override applies to: the
- * GUID of the corresponding node inside the target's own main component
- * (cloneNodeProps stamps componentId with that node's id on every clone).
- */
-function resolveOverrideTargetGuid(
-  context: SceneNodeToKiwiContext,
-  target: SceneNode,
-  localIdCounter: { value: number }
-): GUID | undefined {
-  const sourceId = target.componentId
-  if (!sourceId) return undefined
-  const source = context.graph.getNode(sourceId)
-  const overrideGuid = source?.overrideKey ? parseGuidOrNull(source.overrideKey) : null
-  return overrideGuid ?? getOrCreateNodeGuid(context, sourceId, localIdCounter)
-}
-
-function serializeFillOverrides(
-  context: SceneNodeToKiwiContext,
-  instance: SceneNode,
-  localIdCounter: { value: number }
-): KiwiSymbolOverridePayload[] {
-  const result: KiwiSymbolOverridePayload[] = []
-  forEachInstanceOverride(instance.instanceOverrides, (nodeId, field) => {
-    if (field !== 'fills' || !nodeId) return
-    const target = context.graph.getNode(nodeId)
-    if (!target || !isDescendantOf(context, nodeId, instance.id)) return
-    const targetGuid = resolveOverrideTargetGuid(context, target, localIdCounter)
-    if (targetGuid)
-      result.push({
-        guidPath: { guids: [targetGuid] },
-        fillPaints: target.fills.map((fill) => context.fillToKiwiPaint(fill))
-      })
-  })
   return result
 }
 
@@ -693,7 +805,6 @@ function applyInstancePayload(
       symbolOverrides,
       serializeRuntimePropertyOverrides(context, node, localIdCounter)
     )
-    mergeOverrides(symbolOverrides, serializeFillOverrides(context, node, localIdCounter))
     if (symbolOverrides.length > 0) symbolData.symbolOverrides = symbolOverrides
     if (node.source.fig.uniformScaleFactor != null) {
       symbolData.uniformScaleFactor = node.source.fig.uniformScaleFactor
@@ -776,6 +887,55 @@ function shouldSerializeRawBackedField(
   return hasValue && !(rawField in effectiveFigmaRawNodeFields(node)) && !alreadySerialized
 }
 
+interface ExportedPropertyReference {
+  defID: GUID
+  componentPropNodeField: string
+}
+interface ExportedParameterEntry {
+  variableField?: string
+  variableData?: {
+    value: { propRefValue: { defId: GUID } }
+    dataType: string
+    resolvedDataType: string
+  }
+}
+function mergeParameterBindings(nc: KiwiNodeChange): void {
+  const parameters = nc.parameterConsumptionMap as
+    | { entries?: Array<{ variableField?: string }> }
+    | undefined
+  const entries = parameters?.entries ?? []
+  const fields = new Set(entries.map((entry) => entry.variableField))
+  const variables = nc.variableConsumptionMap?.entries ?? []
+  if (!variables.length) return
+  nc.parameterConsumptionMap = {
+    entries: [...variables.filter((entry) => !fields.has(entry.variableField)), ...entries]
+  }
+}
+
+function applyParameterReferences(nc: KiwiNodeChange, refs: ExportedPropertyReference[]): void {
+  if (!refs.length) return
+  const existing = nc.parameterConsumptionMap as { entries?: ExportedParameterEntry[] } | undefined
+  const fields = new Set(refs.map((ref) => ref.componentPropNodeField))
+  const entries = (existing?.entries ?? []).filter(
+    (entry) => !fields.has(entry.variableField ?? '')
+  )
+  const types: Record<string, string> = {
+    VISIBLE: 'BOOLEAN',
+    TEXT_DATA: 'STRING',
+    OVERRIDDEN_SYMBOL_ID: 'SYMBOL_ID'
+  }
+  for (const ref of refs)
+    entries.push({
+      variableField: ref.componentPropNodeField,
+      variableData: {
+        value: { propRefValue: { defId: ref.defID } },
+        dataType: 'PROP_REF',
+        resolvedDataType: types[ref.componentPropNodeField]
+      }
+    })
+  nc.parameterConsumptionMap = { entries }
+}
+
 function applyComponentMetadata(
   context: SceneNodeToKiwiContext,
   node: SceneNode,
@@ -801,6 +961,7 @@ function applyComponentMetadata(
     name: def.name,
     type: componentPropertyTypeForKiwi(def.type),
     initialValue: componentPropertyValue(def.type, def.defaultValue, context, localIdCounter),
+    varValue: componentPropertyVariableValue(def.type, def.defaultValue, context, localIdCounter),
     preferredValues: componentPropertyPreferredValues(def, context)
   }))
   if (shouldSerializeRawBackedField(node, 'componentPropDefs', componentPropDefs.length > 0)) {
@@ -815,13 +976,15 @@ function applyComponentMetadata(
     nc.componentPropRefs = componentPropRefs
   }
 
+  applyParameterReferences(nc, componentPropRefs)
   const componentPropAssignments = Object.entries(node.componentPropertyAssignments)
     .map(([propertyId, value]) => {
       const definition = context.componentPropertyDefinitionsById.get(propertyId)
       if (!definition) return null
       return {
         defID: getOrCreatePropertyGuid(context, propertyId, localIdCounter),
-        value: componentPropertyValue(definition.type, value, context, localIdCounter)
+        value: componentPropertyValue(definition.type, value, context, localIdCounter),
+        varValue: componentPropertyVariableValue(definition.type, value, context, localIdCounter)
       }
     })
     .filter((assignment): assignment is NonNullable<typeof assignment> => assignment !== null)
@@ -1018,7 +1181,7 @@ export function sceneNodeToKiwiWithContext(
     guid,
     parentIndex: {
       guid: parentGuid,
-      position: node.source.orderKey ?? context.fractionalPosition(childIndex)
+      position: context.fractionalPosition(childIndex)
     },
     type: exportType,
     name: node.name,
@@ -1054,6 +1217,7 @@ export function sceneNodeToKiwiWithContext(
   context.serializeLayoutProps(node, nc)
   context.serializeGeometry(nodeForGeometryExport(node), nc, context.blobs)
   context.serializeVariableBindings(node, nc, context.graph, context.varIdToGuid)
+  mergeParameterBindings(nc)
   applyRawFigmaNodeFields(context, node, nc)
   const variableModeBySetMap = serializeVariableModes(
     node,
@@ -1075,7 +1239,9 @@ export function sceneNodeToKiwiWithContext(
   const children =
     node.type === 'INSTANCE'
       ? []
-      : context.graph.getChildren(node.id).filter((child) => !child.internalOnly)
+      : context.graph
+          .getChildren(node.id)
+          .filter((child) => !child.internalOnly && child.sharedStyleType === null)
   for (let i = 0; i < children.length; i++) {
     result.push(...context.sceneNodeToKiwi(children[i], guid, i, localIdCounter, context))
   }

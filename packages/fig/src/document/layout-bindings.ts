@@ -1,3 +1,4 @@
+import { forEachInstanceOverride } from '@open-pencil/scene-graph'
 import type { SceneGraph } from '@open-pencil/scene-graph'
 
 import { resolvedNumericBindingUpdate } from '../node-change/variable-bindings'
@@ -7,9 +8,21 @@ export function applyDocumentLayoutBindings(
   graph: SceneGraph,
   savedSizeNodes: ReadonlySet<string> = new Set()
 ): void {
+  const sizesOverridden = new Map<string, Set<string>>()
+  for (const owner of graph.getAllNodes()) {
+    if (owner.type !== 'INSTANCE') continue
+    forEachInstanceOverride(owner.instanceOverrides, (id, field) => {
+      if (field !== 'width' && field !== 'height') return
+      const target = id || owner.id
+      const fields = sizesOverridden.get(target) ?? new Set<string>()
+      fields.add(field)
+      sizesOverridden.set(target, fields)
+    })
+  }
   for (const node of graph.getAllNodes()) {
     for (const [field, variableId] of Object.entries(node.boundVariables)) {
       if ((field === 'width' || field === 'height') && savedSizeNodes.has(node.id)) continue
+      if (sizesOverridden.get(node.id)?.has(field)) continue
       const variable = graph.variables.get(variableId)
       if (!variable) continue
       const modeId = graph.getNodeVariableModeId(node.id, variable.collectionId)

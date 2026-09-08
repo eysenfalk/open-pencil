@@ -32,6 +32,7 @@ test('full Accordion source records preserve independent labels while reporting 
   for (const diagnostic of diagnostics) {
     expect(diagnostic).toEqual({
       ownerId: '7:95',
+      mainComponentId: '7:94',
       path: [{ sessionID: 7, localID: 93 }],
       reason: 'missing-target'
     })

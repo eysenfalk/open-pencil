@@ -18,6 +18,7 @@ export interface SymbolOverride extends VariableConsumptionMapFields {
 export type SymbolOverrideFields = VariableConsumptionMapFields
 
 export interface SymbolData {
+  uniformScaleFactor?: number
   symbolID?: GUID
   symbolOverrides?: SymbolOverride[]
 }

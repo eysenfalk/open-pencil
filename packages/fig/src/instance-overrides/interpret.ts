@@ -38,6 +38,8 @@ export interface InstanceOccurrence {
   readonly overrideKey: GUID | undefined
   mainComponentId: string | null
   mainComponentOverrideKey?: GUID
+  sourceComponentOverrideKey?: GUID
+  sourceComponentId?: GUID
   properties: NodeChange
   children: InstanceOccurrence[]
   /** Explicit property records declared by this occurrence's source. */
@@ -51,6 +53,7 @@ export interface InstanceOccurrence {
 
 export interface InstancePathDiagnostic {
   ownerId: string
+  mainComponentId?: string | null
   path: readonly GUID[]
   reason: 'missing-target' | 'ambiguous-target'
 }
@@ -107,8 +110,18 @@ function findSegment(root: InstanceOccurrence, guid: GUID): InstanceOccurrence {
 function isRootGuid(owner: InstanceOccurrence, guid: GUID): boolean {
   return (
     sameGuid(owner.properties.symbolData?.symbolID, guid) ||
-    sameGuid(owner.mainComponentOverrideKey, guid)
+    sameGuid(owner.mainComponentOverrideKey, guid) ||
+    sameGuid(owner.sourceComponentOverrideKey, guid) ||
+    sameGuid(owner.sourceComponentId, guid)
   )
+}
+
+function retainEffectiveAssignments(
+  source: NodeChange,
+  occurrence: InstanceOccurrence,
+  assignments: ComponentPropAssignment[]
+): void {
+  if (source.type === 'INSTANCE') occurrence.properties.componentPropAssignments = assignments
 }
 
 function restorePlacedSize(source: NodeChange, occurrence: InstanceOccurrence): void {
@@ -122,12 +135,7 @@ export function resolveOccurrencePath(
 ): InstanceOccurrence {
   let target = owner
   for (const [index, guid] of path.entries()) {
-    if (
-      index === 0 &&
-      (sameGuid(owner.properties.symbolData?.symbolID, guid) ||
-        sameGuid(owner.mainComponentOverrideKey, guid))
-    )
-      continue
+    if (index === 0 && isRootGuid(owner, guid)) continue
     target = findSegment(target, guid)
   }
   return target
@@ -141,7 +149,8 @@ function applyPropertyOverrides(
     target: InstanceOccurrence,
     props: Record<string, unknown>,
     path: readonly GUID[]
-  ) => void
+  ) => void,
+  isRemovedTarget: (path: readonly GUID[]) => boolean
 ): void {
   for (const override of overrides) {
     const {
@@ -155,6 +164,12 @@ function applyPropertyOverrides(
     try {
       target = targetFor(guidPath.guids)
     } catch (error) {
+      if (
+        error instanceof InstancePathError &&
+        error.diagnostic.reason === 'missing-target' &&
+        isRemovedTarget(guidPath.guids)
+      )
+        continue
       if (!(error instanceof InstancePathError) || !options.onUnresolvedProperty) throw error
       options.onUnresolvedProperty(error.diagnostic)
       continue
@@ -220,7 +235,7 @@ function replaceOccurrence(target: InstanceOccurrence, replacement: InstanceOccu
   if (target.mainComponentId === null) throw new Error('Swap target is not an instance')
   target.mainComponentOverrideKey = replacement.mainComponentOverrideKey ?? replacement.overrideKey
   target.mainComponentId = replacement.mainComponentId ?? replacement.sourceId
-  const { guid, parentIndex, type, name, transform, size } = target.properties
+  const { guid, parentIndex, type, name, transform, size, componentPropRefs } = target.properties
   target.properties = {
     ...replacement.properties,
     guid,
@@ -228,6 +243,7 @@ function replaceOccurrence(target: InstanceOccurrence, replacement: InstanceOccu
     type,
     transform,
     size,
+    componentPropRefs: structuredClone(componentPropRefs),
     ...(target.hasOwnName
       ? { name }
       : { name: replacement.defaultInstanceName ?? replacement.properties.name })
@@ -469,6 +485,44 @@ function interpretRoot(
     const replacement = bound.symbolData?.symbolID
     return !!original && !!replacement && !sameGuid(original, replacement)
   }
+  const sourceRootIdentity = (raw: NodeChange) => {
+    const sourceComponentId = raw.symbolData?.symbolID
+    const component = sourceComponentId ? sources.get(guidToString(sourceComponentId)) : undefined
+    return {
+      sourceComponentId,
+      sourceComponentOverrideKey: readOverrideKey(component?.overrideKey)
+    }
+  }
+  const resolvesInSourceComponent = (componentId: GUID, path: readonly GUID[]): boolean => {
+    let sourceId = guidToString(componentId)
+    for (const [index, segment] of path.entries()) {
+      const source = sources.get(sourceId)
+      if (!source) return false
+      if (
+        index === 0 &&
+        (sameGuid(source.guid, segment) || sameGuid(readOverrideKey(source.overrideKey), segment))
+      )
+        continue
+      const matches: NodeChange[] = []
+      const visit = (parentId: string): void => {
+        for (const child of children.get(parentId) ?? []) {
+          if (
+            sameGuid(child.guid, segment) ||
+            sameGuid(readOverrideKey(child.overrideKey), segment)
+          )
+            matches.push(child)
+          else if (!child.symbolData?.symbolID && child.guid) visit(guidToString(child.guid))
+        }
+      }
+      visit(sourceId)
+      if (matches.length !== 1) return false
+      const matched = matches[0]
+      if (index === path.length - 1) return true
+      if (!matched.symbolData?.symbolID) return false
+      sourceId = guidToString(matched.symbolData.symbolID)
+    }
+    return false
+  }
   const expand = (
     id: string,
     bindings: readonly PropertyBinding[] = [],
@@ -496,6 +550,7 @@ function interpretRoot(
       const childBindings = bindingContext(source, bindings, assignments)
       const occurrence: InstanceOccurrence = {
         sourceId: id,
+        ...sourceRootIdentity(raw),
         ...inheritedOccurrenceProperties(base),
         bindingClaims,
         hasOwnName: inheritsInstanceName(symbolId, base),
@@ -508,6 +563,11 @@ function interpretRoot(
             return expand(guidToString(child.guid), childBindings)
           })
       }
+      retainEffectiveAssignments(source, occurrence, [
+        ...ownAssignments,
+        ...rootAssignments(source, componentKey),
+        ...assignments
+      ])
       if (base && bindingChangesComponent(raw, source)) {
         occurrence.properties.name = defaultInstanceName(base)
       }
@@ -528,6 +588,7 @@ function interpretRoot(
           throw new InstancePathError(
             {
               ownerId: id,
+              mainComponentId: occurrence.mainComponentId,
               path: structuredClone(path),
               reason: cause.count === 0 ? 'missing-target' : 'ambiguous-target'
             },
@@ -551,17 +612,30 @@ function interpretRoot(
         adopt,
         retireDescendants
       )
-      applyPropertyOverrides(overrides, targetFor, options, (target, props, path) => {
-        if ('name' in props) target.hasOwnName = true
-        recordPatch(target, props)
-        const claim: InstancePropertyClaim = {
-          declaredBy: id,
-          path: structuredClone(path),
-          properties: structuredClone(props)
+      applyPropertyOverrides(
+        overrides,
+        targetFor,
+        options,
+        (target, props, path) => {
+          if ('name' in props) target.hasOwnName = true
+          recordPatch(target, props)
+          const claim: InstancePropertyClaim = {
+            declaredBy: id,
+            path: structuredClone(path),
+            properties: structuredClone(props)
+          }
+          occurrence.propertyClaims.push(claim)
+          indexClaim(target, claim)
+        },
+        (path) => {
+          const original = raw.symbolData?.symbolID
+          return (
+            !!original &&
+            bindingChangesComponent(raw, source) &&
+            resolvesInSourceComponent(original, path)
+          )
         }
-        occurrence.propertyClaims.push(claim)
-        indexClaim(target, claim)
-      })
+      )
       restorePlacedSize(source, occurrence)
       applyDerivedBounds(source, occurrence, targetFor, options)
       recipes.set(occurrence, (next) => expand(id, bindings, [...assignments, ...next]))

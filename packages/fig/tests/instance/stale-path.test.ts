@@ -14,6 +14,7 @@ test('reports stale property overrides and leaves the actual replacement vector 
   expect(diagnostics).toEqual([
     {
       ownerId: '7:95',
+      mainComponentId: '7:94',
       path: [{ sessionID: 7, localID: 93 }],
       reason: 'missing-target'
     }

@@ -553,7 +553,9 @@ export async function exportFigFile(
     ...canvasEntries.filter((entry) => !entry.page.internalOnly)
   ]
   for (const { page, canvasGuid } of orderedCanvasEntries) {
-    const children = graph.getChildren(page.id).filter((child) => !child.internalOnly)
+    const children = graph
+      .getChildren(page.id)
+      .filter((child) => !child.internalOnly && child.sharedStyleType === null)
     for (let i = 0; i < children.length; i++) {
       nodeChanges.push(
         ...sceneNodeToKiwi(

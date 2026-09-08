@@ -10,6 +10,7 @@ import {
 } from '../instance-overrides/source-children'
 import { nodeChangeToProps } from '../node-change'
 import type { BindingReferenceDiagnostic } from './binding-references'
+import { linkComponentPropertyValues } from './component-values'
 import { applyDocumentLayoutBindings } from './layout-bindings'
 import { createDocumentReader } from './read'
 import { materializeVariableResources } from './variables'
@@ -110,6 +111,7 @@ export function materializeDocument(
     if (parent) parent.childIds = ordered
   }
   for (const page of pages) populateInstances(page)
+  linkComponentPropertyValues(graph, sources)
   graph.preserveSourceMetadataDuring(() => applyDocumentLayoutBindings(graph, savedSizeNodes))
   return { graph, sources }
 }

@@ -3,6 +3,18 @@ import { createDefaultSourceMetadata } from '@open-pencil/scene-graph/node-defau
 
 import { nodeChangeToProps } from '../node-change'
 import { resolveOccurrencePath, type InstanceOccurrence } from './interpret'
+import type { SymbolData } from './types'
+
+function occurrenceMetadata(
+  current: InstanceOccurrence,
+  converted: ReturnType<typeof nodeChangeToProps>
+) {
+  const metadata = createDefaultSourceMetadata()
+  metadata.fig.layout = converted.source?.fig.layout ?? null
+  metadata.fig.uniformScaleFactor =
+    (current.properties.symbolData as SymbolData | undefined)?.uniformScaleFactor ?? null
+  return metadata
+}
 
 export interface MaterializedInstance {
   root: SceneNode
@@ -76,13 +88,14 @@ export function materializeInstance(
     if (nodeType === 'DOCUMENT' || nodeType === 'VARIABLE') {
       throw new Error(`Cannot materialize ${nodeType} as an instance descendant`)
     }
+    const metadata = occurrenceMetadata(current, converted)
     const propsWithIdentity = {
       ...props,
       componentId:
         current.mainComponentId === null
           ? (sourceChildren.get(current) ?? null)
           : components.get(current.mainComponentId),
-      source: createDefaultSourceMetadata()
+      source: metadata
     }
     const existing = existingNodes.get(current)
     if (existing && existing.parentId !== parent) {
@@ -113,20 +126,72 @@ export function materializeInstance(
         )
       }
     }
-    for (const child of current.children) {
-      create(child, node.id, node.type === 'INSTANCE' ? node : owner)
-    }
+    const children = current.children.map(
+      (child) => create(child, node.id, node.type === 'INSTANCE' ? node : owner).id
+    )
+    node.childIds = children
     return node
   }
   const root = create(occurrence, parentId)
+  recordPropertyClaims(nodes)
+  return { root, nodes }
+}
+
+function recordPropertyClaims(nodes: ReadonlyMap<InstanceOccurrence, SceneNode>): void {
   for (const [ownerOccurrence, owner] of nodes) {
     if (owner.type !== 'INSTANCE') continue
     for (const claim of ownerOccurrence.propertyClaims) {
       const targetOccurrence = resolveOccurrencePath(ownerOccurrence, claim.path)
       const target = nodes.get(targetOccurrence)
       if (!target) throw new Error('Unmaterialized property claim target')
+      for (const [rawField, field] of [
+        ['fillPaints', 'fills'],
+        ['strokePaints', 'strokes']
+      ] as const) {
+        if (rawField in claim.properties)
+          setInstanceOverride(
+            owner.instanceOverrides,
+            owner.id,
+            target.id,
+            field,
+            structuredClone(target[field])
+          )
+      }
       if ('visible' in claim.properties) {
         setInstanceOverride(owner.instanceOverrides, owner.id, target.id, 'visible', target.visible)
+      }
+      for (const [rawField, field] of [
+        ['stackHorizontalPadding', 'paddingLeft'],
+        ['stackPaddingRight', 'paddingRight'],
+        ['stackVerticalPadding', 'paddingTop'],
+        ['stackPaddingBottom', 'paddingBottom']
+      ] as const) {
+        if (rawField in claim.properties) {
+          setInstanceOverride(owner.instanceOverrides, owner.id, target.id, field, target[field])
+        }
+      }
+      if ('styleIdForText' in claim.properties && target.textStyleId) {
+        setInstanceOverride(
+          owner.instanceOverrides,
+          owner.id,
+          target.id,
+          'textStyleId',
+          target.textStyleId
+        )
+      }
+      if ('size' in claim.properties) {
+        setInstanceOverride(owner.instanceOverrides, owner.id, target.id, 'width', target.width)
+        setInstanceOverride(owner.instanceOverrides, owner.id, target.id, 'height', target.height)
+      }
+      for (const [rawField, field] of [
+        ['textAutoResize', 'textAutoResize'],
+        ['stackChildPrimaryGrow', 'layoutGrow'],
+        ['stackPrimarySizing', 'primaryAxisSizing'],
+        ['stackCounterSizing', 'counterAxisSizing'],
+        ['stackChildAlignSelf', 'layoutAlignSelf']
+      ] as const) {
+        if (rawField in claim.properties)
+          setInstanceOverride(owner.instanceOverrides, owner.id, target.id, field, target[field])
       }
       if ('textData' in claim.properties) {
         const textData = claim.properties.textData
@@ -136,5 +201,4 @@ export function materializeInstance(
       }
     }
   }
-  return { root, nodes }
 }

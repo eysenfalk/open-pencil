@@ -187,23 +187,6 @@ function serializeCornerRadii(node: SceneNode, nc: KiwiNodeChange): void {
   }
 }
 
-function resolveTextAutoResize(node: SceneNode, graph: SceneGraph): SceneNode['textAutoResize'] {
-  // For nodes imported from .fig files, preserve the original textAutoResize
-  // value. Forcing 'HEIGHT' for fixed-height text inside auto-layout causes
-  // layout drift on roundtrip.
-  if (node.source.id) return node.textAutoResize
-  const parent = node.parentId ? graph.getNode(node.parentId) : undefined
-  if (
-    parent &&
-    parent.layoutMode !== 'NONE' &&
-    parent.layoutMode !== 'GRID' &&
-    node.layoutPositioning !== 'ABSOLUTE'
-  ) {
-    return 'HEIGHT'
-  }
-  return node.textAutoResize
-}
-
 function serializeTextProps(
   node: SceneNode,
   nc: KiwiNodeChange,
@@ -224,7 +207,7 @@ function serializeTextProps(
   if (node.fontVariations.length > 0) {
     nc.fontVariations = node.fontVariations.map(fontVariationToKiwi)
   }
-  const autoResize = resolveTextAutoResize(node, graph)
+  const autoResize = node.textAutoResize
   const rawNodeFields = effectiveFigmaRawNodeFields(node)
   if (!node.source.id || autoResize !== 'NONE' || 'textAutoResize' in rawNodeFields) {
     nc.textAutoResize = autoResize
@@ -337,6 +320,40 @@ function serializeSizeConstraints(node: SceneNode, nc: KiwiNodeChange): void {
   }
 }
 
+function exportSizing(value: SceneNode['primaryAxisSizing']) {
+  return value === 'HUG' ? 'RESIZE_TO_FIT' : 'FIXED'
+}
+
+function applyEditedLayoutFields(node: SceneNode, nc: KiwiNodeChange): void {
+  const values: Partial<Record<keyof SceneNode, Partial<KiwiNodeChange>>> = {
+    layoutMode: { stackMode: normalizeStackMode(node.layoutMode) },
+    itemSpacing: { stackSpacing: node.itemSpacing },
+    paddingLeft: { stackHorizontalPadding: node.paddingLeft },
+    paddingRight: { stackPaddingRight: node.paddingRight },
+    paddingTop: { stackVerticalPadding: node.paddingTop },
+    paddingBottom: { stackPaddingBottom: node.paddingBottom },
+    primaryAxisSizing: { stackPrimarySizing: exportSizing(node.primaryAxisSizing) },
+    counterAxisSizing: { stackCounterSizing: exportSizing(node.counterAxisSizing) },
+    primaryAxisAlign: { stackPrimaryAlignItems: normalizeStackJustify(node.primaryAxisAlign) },
+    counterAxisAlign: {
+      stackCounterAlignItems: normalizeStackCounterAlignItems(node.counterAxisAlign)
+    },
+    layoutGrow: { stackChildPrimaryGrow: node.layoutGrow },
+    layoutAlignSelf: { stackChildAlignSelf: node.layoutAlignSelf },
+    layoutPositioning: { stackPositioning: node.layoutPositioning },
+    layoutWrap: { stackWrap: node.layoutWrap },
+    counterAxisSpacing: { stackCounterSpacing: node.counterAxisSpacing },
+    strokesIncludedInLayout: { bordersTakeSpace: node.strokesIncludedInLayout },
+    itemReverseZIndex: { stackReverseZIndex: node.itemReverseZIndex }
+  }
+  for (const field of node.source.editedFields) {
+    if (field in values) Object.assign(nc, values[field as keyof SceneNode])
+  }
+  if (node.source.editedFields.includes('layoutDirection')) {
+    upsertPluginData(node, LAYOUT_DIRECTION_PLUGIN_KEY, node.layoutDirection)
+  }
+}
+
 function serializeLayoutProps(node: SceneNode, nc: KiwiNodeChange, graph: SceneGraph): void {
   if (!node.source.id) upsertPluginData(node, LAYOUT_DIRECTION_PLUGIN_KEY, node.layoutDirection)
   serializeSizeConstraints(node, nc)
@@ -377,6 +394,7 @@ function serializeLayoutProps(node: SceneNode, nc: KiwiNodeChange, graph: SceneG
     nc.bordersTakeSpace = figLayout.bordersTakeSpace
     if (figLayout.stackReverseZIndex) nc.stackReverseZIndex = true
     serializeInheritedCounterAxisStretch(node, nc, graph)
+    applyEditedLayoutFields(node, nc)
     return
   }
   if (node.layoutMode !== 'NONE' && node.layoutMode !== 'GRID') {

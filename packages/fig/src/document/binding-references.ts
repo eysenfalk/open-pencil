@@ -2,6 +2,7 @@ import type { GUID, NodeChange } from '@open-pencil/kiwi/fig/codec'
 import { stringToGuid } from '@open-pencil/kiwi/fig/guid'
 
 import type { SymbolData, SymbolOverride } from '../instance-overrides/types'
+import { normalizeComponentPropertyRecords } from './property-records'
 import { createResourceResolver } from './resource-reference'
 
 export interface BindingReferenceDiagnostic {
@@ -48,6 +49,7 @@ export function resolveDocumentBindingReferences(
       reference.guid = stringToGuid(id)
     }
     const visit = (node: NodeChange, path: readonly GUID[]): void => {
+      normalizeComponentPropertyRecords(node)
       for (const entry of node.variableConsumptionMap?.entries ?? []) {
         normalize(entry.variableData?.value?.alias, entry.variableField ?? 'unknown', path)
       }
@@ -64,6 +66,15 @@ export function resolveDocumentBindingReferences(
         | undefined
       for (const entry of modeMap?.entries ?? []) {
         normalize(entry.variableSetID, 'variableModeBySetMap', path)
+      }
+      for (const field of [
+        'styleIdForText',
+        'styleIdForFill',
+        'styleIdForStrokeFill',
+        'styleIdForEffect',
+        'styleIdForGrid'
+      ] as const) {
+        normalize(node[field] as NodeChange['variableSetID'], field, path)
       }
       visitChildren(node, path, visit)
     }
