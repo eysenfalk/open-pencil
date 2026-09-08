@@ -7,6 +7,7 @@ import { IS_TAURI } from '@open-pencil/core/constants'
 import { browserCredentialsRemembered, appCredentialServices } from '@/app/settings/credentials/app'
 import { setRememberCredentials } from '@/app/settings/credentials/media'
 import { settingsDialogOpen, settingsDialogSection } from '@/app/settings/dialog'
+import CredentialRetry from '@/components/settings/credentials/CredentialRetry.vue'
 import DiagnosticsSettingsPanel from '@/components/settings/diagnostics/DiagnosticsSettingsPanel.vue'
 import GeneralSettingsPanel from '@/components/settings/general/GeneralSettingsPanel.vue'
 import MCPConnectionsSection from '@/components/settings/mcp/MCPConnectionsSection.vue'
@@ -190,6 +191,7 @@ const navigationClass =
           </p>
         </div>
       </div>
+      <CredentialRetry v-if="IS_TAURI" />
       <DialogClose as-child>
         <button
           type="button"
