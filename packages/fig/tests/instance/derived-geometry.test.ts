@@ -9,6 +9,36 @@ import { SceneGraph } from '@open-pencil/scene-graph'
 
 import { guid } from '../helpers/guid'
 
+test('text overrides discard inherited glyph data but accept occurrence-derived replacement data', () => {
+  const changes = [
+    { guid: guid(1), type: 'SYMBOL' },
+    {
+      guid: guid(2),
+      type: 'TEXT',
+      parentIndex: { guid: guid(1), position: '!' },
+      textData: { characters: 'Typography' },
+      derivedTextData: { layoutSize: { x: 415, y: 94 } }
+    },
+    {
+      guid: guid(3),
+      type: 'INSTANCE',
+      symbolData: {
+        symbolID: guid(1),
+        symbolOverrides: [{ guidPath: { guids: [guid(2)] }, textData: { characters: 'Toolbars' } }]
+      },
+      derivedSymbolData: [
+        { guidPath: { guids: [guid(2)] }, derivedTextData: { layoutSize: { x: 310, y: 94 } } }
+      ]
+    }
+  ] as NodeChange[]
+  expect(interpretInstance(changes, '1:3').children[0].properties.derivedTextData).toBeUndefined()
+  expect(
+    interpretInstance(changes, '1:3', { derivedBounds: true }).children[0].properties
+      .derivedTextData?.layoutSize
+  ).toEqual({ x: 310, y: 94 })
+  expect(changes[1].derivedTextData?.layoutSize).toEqual({ x: 415, y: 94 })
+})
+
 test('occurrence text size replaces source cache and is invalidated by a text edit', () => {
   const changes = [
     { guid: guid(1), type: 'SYMBOL' },

@@ -116,6 +116,7 @@ export function bindSourceProperties(
           ? value.textValue
           : (value.textValue?.characters ?? value.textDataValue?.characters)
       if (text !== undefined) {
+        if (text !== result.textData?.characters) result.derivedTextData = undefined
         result.textData = { ...result.textData, characters: text }
         claim('textData')
       }

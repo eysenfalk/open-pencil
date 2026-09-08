@@ -10,6 +10,7 @@ import {
   type BoundPropertyClaim,
   type PropertyBinding
 } from './interpret-bindings'
+import { invalidateInheritedTextData } from './text-provenance'
 import type {
   ComponentPropAssignment,
   DerivedSymbolOverride,
@@ -180,6 +181,7 @@ function applyPropertyOverrides(
       options.onUnresolvedProperty(error.diagnostic)
       continue
     }
+    invalidateInheritedTextData(target.properties, props)
     Object.assign(target.properties, structuredClone(props))
     record(target, props, guidPath.guids)
   }
@@ -206,6 +208,8 @@ function applyDerivedBounds(
       continue
     }
     if (target === root) continue // Placed root bounds belong to its NodeChange.
+    if (entry.derivedTextData)
+      target.properties.derivedTextData = structuredClone(entry.derivedTextData)
     if (entry.fontSize !== undefined) target.properties.fontSize = entry.fontSize
     if (entry.lineHeight !== undefined)
       target.properties.lineHeight = structuredClone(entry.lineHeight)
@@ -452,6 +456,7 @@ function interpretRoot(
       const retained = Object.fromEntries(
         Object.entries(patch).filter(([field]) => !boundFields.has(field))
       )
+      invalidateInheritedTextData(next.properties, retained)
       Object.assign(next.properties, structuredClone(retained))
       recordPatch(next, retained)
     }
