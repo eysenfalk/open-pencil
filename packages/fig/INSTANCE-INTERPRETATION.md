@@ -194,6 +194,26 @@ previous broken-layout screenshots; they do not establish exact visual parity or
 for production cutover. Captures currently live in temporary diagnostic artifacts and need
 maintained reproducible round-trip capture tooling.
 
+## Cross-fixture dependency milestone
+
+Document construction now follows non-internal page content, referenced component trees,
+and required ownership ancestors without pulling in unrelated internal siblings. Full source
+records remain available separately. Required missing sources are errors; absent preferred
+swap choices are reported as external choices, not required rendering dependencies.
+`ancestorPathBeforeDeletion` alone is not a deletion flag: live Figma component sets can carry it.
+Parent property definitions are resolved within source ancestry while retaining local IDs.
+
+Strict interpretation still rejects unresolved assignment targets. The comparison command's
+`--allow-partial-assignments` option explicitly records skipped assignment payloads and exits
+nonzero if any are skipped. It never makes missing swap targets or ambiguous paths acceptable.
+
+Material 3 currently assembles only with this partial-assignment acknowledgement: 826 assignment
+callbacks (329 distinct reports in the measured run). Toolbar section `58027:76064` matches
+1,000 nodes except seven names; section `58823:1686` matches all compared fields across 972
+nodes. These checks do not establish pixel fidelity. A diagnostic run measured about 17 seconds
+assembly and 3 GB process RSS; performance acceptance is outstanding. Shadcn assembly succeeds
+with property-path reports; nuxtui needs reassessment after dependency selection.
+
 ## Remaining acceptance gaps
 
 - Complete ownership and precedence of provenance through inheritance, swaps, and re-expansion.

@@ -58,11 +58,17 @@ export interface InstancePathDiagnostic {
   reason: 'missing-target' | 'ambiguous-target'
 }
 
+export interface InstanceAssignmentDiagnostic extends InstancePathDiagnostic {
+  assignments: readonly ComponentPropAssignment[]
+}
+
 export interface InterpretInstanceOptions {
   /** Apply explicitly saved effective bounds, geometry and typography; no inferred scaling or layout. */
   derivedBounds?: boolean
   /** Unresolved property overrides are skipped only when a diagnostic receiver is supplied. */
   onUnresolvedProperty?: (diagnostic: InstancePathDiagnostic) => void
+  /** Explicit partial evaluation: report and skip missing assignment targets. Swaps remain fatal. */
+  onUnresolvedAssignment?: (diagnostic: InstanceAssignmentDiagnostic) => void
 }
 
 class InstancePathError extends Error {
@@ -300,13 +306,30 @@ function applyStructuralOverrides(
     assignments: readonly ComponentPropAssignment[]
   ) => void,
   adopt: (target: InstanceOccurrence, replacement: InstanceOccurrence) => void,
-  retireDescendants: (target: InstanceOccurrence) => void
+  retireDescendants: (target: InstanceOccurrence) => void,
+  options: InterpretInstanceOptions
 ): void {
   const structural = groupedStructuralOverrides(overrides)
   for (const override of structural) {
     const path = override.guidPath?.guids
     if (!path?.length) continue
-    const target = targetFor(path)
+    let target: InstanceOccurrence
+    try {
+      target = targetFor(path)
+    } catch (error) {
+      if (
+        !(error instanceof InstancePathError) ||
+        error.diagnostic.reason !== 'missing-target' ||
+        override.overriddenSymbolID ||
+        !options.onUnresolvedAssignment
+      )
+        throw error
+      options.onUnresolvedAssignment({
+        ...error.diagnostic,
+        assignments: structuredClone(override.componentPropAssignments ?? [])
+      })
+      continue
+    }
     if (override.overriddenSymbolID) {
       const replacement = expand(
         guidToString(override.overriddenSymbolID),
@@ -610,7 +633,8 @@ function interpretRoot(
         expand,
         reconfigure,
         adopt,
-        retireDescendants
+        retireDescendants,
+        options
       )
       applyPropertyOverrides(
         overrides,

@@ -16,6 +16,7 @@ const { values } = parseArgs({
     file: { type: 'string' },
     node: { type: 'string' },
     'figma-key': { type: 'string' },
+    'allow-partial-assignments': { type: 'boolean', default: false },
     output: { type: 'string' }
   }
 })
@@ -35,9 +36,13 @@ if (
 }
 const { nodeChanges, blobs, images } = parseFigBuffer(await Bun.file(values.file).arrayBuffer())
 const diagnostics: InstancePathDiagnostic[] = []
+const assignmentDiagnostics: unknown[] = []
 const { graph, sources } = materializeDocument(nodeChanges, blobs, {
   images: new Map(images),
   derivedBounds: true,
+  onUnresolvedAssignment: values['allow-partial-assignments']
+    ? (diagnostic) => assignmentDiagnostics.push(diagnostic)
+    : undefined,
   onUnresolvedProperty: (diagnostic) => diagnostics.push(diagnostic)
 })
 const root = sources.get(values.node)
@@ -50,6 +55,7 @@ for (const [name, value] of Object.entries({
   actual,
   differences,
   diagnostics,
+  assignmentDiagnostics,
   groupedDiagnostics
 })) {
   await Bun.write(join(values.output, `${name}.json`), JSON.stringify(value, null, 2))
@@ -60,6 +66,7 @@ for (const difference of differences)
 console.log(
   JSON.stringify(
     {
+      partialAssignmentCallbacks: assignmentDiagnostics.length,
       expectedNodes: oracle.nodes.length,
       actualNodes: actual.length,
       differences: counts,
@@ -70,4 +77,4 @@ console.log(
     2
   )
 )
-if (differences.length) process.exitCode = 1
+if (differences.length || assignmentDiagnostics.length) process.exitCode = 1

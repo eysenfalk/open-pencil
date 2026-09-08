@@ -10,6 +10,8 @@ import {
   type BindingReferenceDiagnostic
 } from './binding-references'
 import { planComponentConstruction } from './components'
+import { collectSceneDependencies } from './dependency-closure'
+import { inheritComponentPropertyDefinitions } from './property-inheritance'
 
 /** Indexed source document. Resources remain separate from scene occurrences. */
 export function createDocumentReader(source: readonly NodeChange[]) {
@@ -17,11 +19,24 @@ export function createDocumentReader(source: readonly NodeChange[]) {
   const changes = resolveDocumentBindingReferences(source, (diagnostic) =>
     bindingDiagnostics.push(diagnostic)
   )
+  inheritComponentPropertyDefinitions(changes)
   const resources = changes.filter(
     (change) => change.type === 'VARIABLE' || change.type === 'VARIABLE_SET'
   )
+  const closure = collectSceneDependencies(changes)
+  if (closure.missingIds.size)
+    throw new Error(`Missing reachable sources: ${[...closure.missingIds].join(', ')}`)
   const sceneChanges = changes.filter(
-    (change) => change.type !== 'VARIABLE' && change.type !== 'VARIABLE_SET'
+    (change) =>
+      change.type !== 'VARIABLE' &&
+      change.type !== 'VARIABLE_SET' &&
+      (change.type === 'CANVAS' ||
+        (change.guid &&
+          (closure.contentIds.has(guidToString(change.guid)) ||
+            closure.ancestorIds.has(guidToString(change.guid)))))
+  )
+  const sourceInterpreter = createOccurrenceInterpreter(
+    changes.filter((change) => change.type !== 'VARIABLE' && change.type !== 'VARIABLE_SET')
   )
   const interpreter = createOccurrenceInterpreter(sceneChanges)
   const pages = changes
@@ -38,6 +53,8 @@ export function createDocumentReader(source: readonly NodeChange[]) {
     })
   const pageIds = new Set(pages.map((page) => page.id))
   return {
+    sourceRecords: changes,
+    dependencyClosure: closure,
     pages,
     resources,
     bindingDiagnostics,
@@ -49,8 +66,10 @@ export function createDocumentReader(source: readonly NodeChange[]) {
       roots: readonly ReturnType<typeof interpreter.page>[],
       options: InterpretInstanceOptions = {}
     ) {
-      return planComponentConstruction(changes, roots, (id) => interpreter.component(id, options))
+      return planComponentConstruction(changes, roots, (id) =>
+        sourceInterpreter.component(id, options)
+      )
     },
-    readComponent: interpreter.component
+    readComponent: sourceInterpreter.component
   }
 }
