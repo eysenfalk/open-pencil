@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 
+import { planComponentConstruction } from '#fig/document/components'
 import { materializeDocument } from '#fig/document/materialize'
 import { createDocumentReader } from '#fig/document/read'
 
@@ -44,6 +45,11 @@ test('reads pages independently through one index with cross-page component expa
   page.children[0].children[0].properties.opacity = 0.2
   expect(reader.readPage('1:3').children[0].children[0].properties.opacity).toBeUndefined()
   expect(reader.readPage('1:2').children[0].sourceId).toBe('1:4')
+  const roots = [page, reader.readPage('1:2')]
+  const reused = planComponentConstruction(changes, roots, () => {
+    throw new Error('Unexpected component re-expansion')
+  })
+  expect(reused[0].occurrence).toBe(roots[1].children[0])
   const plan = reader.planComponents([page, reader.readPage('1:2')])
   expect(
     plan.map(({ sourceId, parentSourceId, pageSourceId }) => ({

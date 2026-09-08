@@ -19,6 +19,13 @@ export function planComponentConstruction(
   const sources = new Map(
     changes.flatMap((change) => (change.guid ? [[guidToString(change.guid), change] as const] : []))
   )
+  const pageComponents = new Map<string, InstanceOccurrence>()
+  const indexPageComponents = (node: InstanceOccurrence): void => {
+    if (node.mainComponentId !== null) return
+    if (node.properties.type === 'SYMBOL') pageComponents.set(node.sourceId, node)
+    for (const child of node.children) indexPageComponents(child)
+  }
+  for (const root of roots) indexPageComponents(root)
   const ordered: ComponentConstruction[] = []
   const complete = new Set<string>()
   const pending = new Set<string>()
@@ -47,7 +54,7 @@ export function planComponentConstruction(
     const source = sources.get(id)
     if (!source?.parentIndex?.guid) throw new Error(`Missing component parent ${id}`)
     const pageSourceId = ownerPage(id)
-    const occurrence = readComponent(id)
+    const occurrence = pageComponents.get(id) ?? readComponent(id)
     // The definition itself is being built; only descend into its dependencies.
     for (const child of occurrence.children) visit(child)
     ordered.push({

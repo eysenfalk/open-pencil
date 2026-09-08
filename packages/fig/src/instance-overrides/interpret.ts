@@ -220,10 +220,10 @@ function applyDerivedBounds(
       target.derivedSize = structuredClone(entry.size)
     }
     if (entry.transform) target.properties.transform = structuredClone(entry.transform)
-    const { fillGeometry, strokeGeometry, vectorData } = structuredClone(entry)
-    if (fillGeometry) target.properties.fillGeometry = fillGeometry
-    if (strokeGeometry) target.properties.strokeGeometry = strokeGeometry
-    if (vectorData) target.properties.vectorData = vectorData
+    const { fillGeometry, strokeGeometry, vectorData } = entry
+    if (fillGeometry) target.properties.fillGeometry = structuredClone(fillGeometry)
+    if (strokeGeometry) target.properties.strokeGeometry = structuredClone(strokeGeometry)
+    if (vectorData) target.properties.vectorData = structuredClone(vectorData)
   }
 }
 
@@ -275,7 +275,11 @@ function groupedStructuralOverrides(overrides: readonly SymbolOverride[]): Symbo
     if (!override.overriddenSymbolID && !override.componentPropAssignments?.length) continue
     const existing = groups.find((group) => samePath(group.guidPath?.guids ?? [], path))
     if (!existing) {
-      groups.push(structuredClone(override))
+      groups.push({
+        guidPath: structuredClone(override.guidPath),
+        overriddenSymbolID: structuredClone(override.overriddenSymbolID),
+        componentPropAssignments: structuredClone(override.componentPropAssignments)
+      })
       continue
     }
     if (override.overriddenSymbolID) existing.overriddenSymbolID = override.overriddenSymbolID
@@ -583,7 +587,7 @@ function interpretRoot(
         bindingClaims,
         hasOwnName: inheritsInstanceName(symbolId, base),
         overrideKey: readOverrideKey(source.overrideKey),
-        properties: { ...base?.properties, ...structuredClone(source) },
+        properties: { ...base?.properties, ...source },
         children:
           base?.children ??
           (children.get(id) ?? []).map((child) => {
