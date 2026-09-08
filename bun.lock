@@ -375,9 +375,20 @@
     "tools/docs": {
       "name": "@open-pencil/docs-tools",
     },
+    "tools/package-artifacts": {
+      "name": "@open-pencil/package-artifacts",
+    },
     "tools/package-quality": {
       "name": "@open-pencil/package-quality-tools",
       "dependencies": {
+        "@open-pencil/package-artifacts": "workspace:*",
+        "citty": "^0.1.6",
+      },
+    },
+    "tools/release-packages": {
+      "name": "@open-pencil/release-packages",
+      "dependencies": {
+        "@open-pencil/package-artifacts": "workspace:*",
         "citty": "^0.1.6",
       },
     },
@@ -1162,9 +1173,13 @@
 
     "@open-pencil/mcp": ["@open-pencil/mcp@workspace:packages/mcp"],
 
+    "@open-pencil/package-artifacts": ["@open-pencil/package-artifacts@workspace:tools/package-artifacts"],
+
     "@open-pencil/package-quality-tools": ["@open-pencil/package-quality-tools@workspace:tools/package-quality"],
 
     "@open-pencil/pen": ["@open-pencil/pen@workspace:packages/pen"],
+
+    "@open-pencil/release-packages": ["@open-pencil/release-packages@workspace:tools/release-packages"],
 
     "@open-pencil/scene-graph": ["@open-pencil/scene-graph@workspace:packages/scene-graph"],
 

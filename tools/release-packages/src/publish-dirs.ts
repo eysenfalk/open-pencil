@@ -1,13 +1,18 @@
 import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 
-interface PackagePublishConfig {
-  dir: string
-  extraFiles: string[]
+import {
+  discoverPublicPackages,
+  type PackageManifest,
+  type WorkspacePackage
+} from '@open-pencil/package-artifacts'
+
+export interface PackagePublishConfig {
+  directory: string
   include: string[]
 }
 
-interface PreparePublishDirectoriesOptions {
+export interface PreparePublishDirectoriesOptions {
   coreVersion: string
   packages: PackagePublishConfig[]
   root: string
@@ -15,31 +20,15 @@ interface PreparePublishDirectoriesOptions {
   log?: (message: string) => void
 }
 
-type PackageJSON = Record<string, unknown> & {
-  dependencies?: Record<string, string>
-  devDependencies?: Record<string, string>
-  peerDependencies?: Record<string, string>
-  publishConfig?: Record<string, unknown>
-  scripts?: unknown
-}
-
-const PACKAGE_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies'] as const
+const PACKAGE_FIELDS = [
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'optionalDependencies'
+] as const satisfies ReadonlyArray<keyof PackageManifest>
 const PUBLISH_CONFIG_FIELDS = new Set(['access', 'provenance', 'registry'])
 
-export const DEFAULT_PACKAGES: PackagePublishConfig[] = [
-  { dir: 'packages/scene-graph', include: ['dist'], extraFiles: ['README.md'] },
-  { dir: 'packages/pen', include: ['dist'], extraFiles: ['README.md'] },
-  { dir: 'packages/kiwi', include: ['dist'], extraFiles: ['README.md'] },
-  { dir: 'packages/fig', include: ['dist'], extraFiles: ['README.md'] },
-  { dir: 'packages/core', include: ['dist', 'src', 'assets'], extraFiles: [] },
-  { dir: 'packages/dom-css', include: ['dist'], extraFiles: ['README.md'] },
-  { dir: 'packages/cli', include: ['bin', 'dist'], extraFiles: [] },
-  { dir: 'packages/mcp', include: ['dist'], extraFiles: [] },
-  { dir: 'packages/harness', include: ['dist'], extraFiles: ['README.md'] },
-  { dir: 'packages/vue', include: ['dist'], extraFiles: ['README.md'] }
-]
-
-async function exists(path: string) {
+async function exists(path: string): Promise<boolean> {
   try {
     await stat(path)
     return true
@@ -57,40 +46,16 @@ async function copyRecursive(from: string, to: string): Promise<void> {
     }
     return
   }
-
   await mkdir(dirname(to), { recursive: true })
   await copyFile(from, to)
 }
 
-interface PackageExports {
-  [key: string]: PackageExports | string | undefined
-}
-
-interface PublishPackageJSON extends PackageJSON {
-  exports?: PackageExports
-  imports?: PackageExports
-}
-
-function isPackageExports(value: unknown): value is PackageExports {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function removeUnpublishedConditions(value: PackageExports | undefined): void {
-  if (!value) return
-  delete value.bun
-  for (const child of Object.values(value)) {
-    if (isPackageExports(child)) removeUnpublishedConditions(child)
-  }
-}
-
-export function publishPackageJSON(source: PackageJSON, coreVersion: string): PackageJSON {
-  const json = structuredClone(source) as PublishPackageJSON
-  removeUnpublishedConditions(json.exports)
-  removeUnpublishedConditions(json.imports)
+export function publishPackageJSON(source: PackageManifest, coreVersion: string): PackageManifest {
+  const json = structuredClone(source)
 
   for (const field of PACKAGE_FIELDS) {
     const dependencies = json[field]
-    if (!dependencies) continue
+    if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) continue
     for (const [name, version] of Object.entries(dependencies)) {
       if (version.startsWith('workspace:')) dependencies[name] = `^${coreVersion}`
     }
@@ -109,18 +74,33 @@ export function publishPackageJSON(source: PackageJSON, coreVersion: string): Pa
   return json
 }
 
+export function packagePublishConfig(pkg: WorkspacePackage): PackagePublishConfig {
+  const include = new Set(pkg.manifest.files)
+  const binTargets =
+    typeof pkg.manifest.bin === 'string'
+      ? [pkg.manifest.bin]
+      : Object.values(pkg.manifest.bin ?? {})
+  for (const target of binTargets) {
+    const topLevel = target.replace(/^\.\//, '').split('/')[0]
+    if (topLevel) include.add(topLevel)
+  }
+  return { directory: pkg.directory, include: [...include] }
+}
+
+export async function discoverPublishPackages(root: string): Promise<PackagePublishConfig[]> {
+  return (await discoverPublicPackages(root)).map(packagePublishConfig)
+}
+
 export async function preparePublishDirectories(
   options: PreparePublishDirectoriesOptions
 ): Promise<void> {
   const outRoot = options.outRoot ?? join(options.root, '.publish')
-  const log = options.log
-
   await rm(outRoot, { recursive: true, force: true })
   await mkdir(outRoot, { recursive: true })
 
   for (const pkg of options.packages) {
-    const sourceDir = join(options.root, pkg.dir)
-    const destinationDir = join(outRoot, basename(pkg.dir))
+    const sourceDir = join(options.root, pkg.directory)
+    const destinationDir = join(outRoot, basename(pkg.directory))
     await mkdir(destinationDir, { recursive: true })
 
     for (const relativePath of pkg.include) {
@@ -128,19 +108,14 @@ export async function preparePublishDirectories(
       if (await exists(from)) await copyRecursive(from, join(destinationDir, relativePath))
     }
 
-    for (const relativePath of pkg.extraFiles) {
-      const from = join(sourceDir, relativePath)
-      if (await exists(from)) await copyRecursive(from, join(destinationDir, relativePath))
-    }
-
     const packageJSON = JSON.parse(
       await readFile(join(sourceDir, 'package.json'), 'utf8')
-    ) as PackageJSON
+    ) as PackageManifest
     const publishJSON = publishPackageJSON(packageJSON, options.coreVersion)
     await writeFile(
       join(destinationDir, 'package.json'),
       `${JSON.stringify(publishJSON, null, 2)}\n`
     )
-    log?.(`Prepared ${destinationDir}`)
+    options.log?.(`Prepared ${destinationDir}`)
   }
 }

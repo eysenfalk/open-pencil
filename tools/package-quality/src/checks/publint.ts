@@ -1,24 +1,18 @@
 import { fileURLToPath } from 'node:url'
 
+import { runCommand } from '@open-pencil/package-artifacts'
+
 import { publicPackageDirs } from '../packages'
 
-const rootDir = fileURLToPath(new URL('../../../..', import.meta.url))
+const root = fileURLToPath(new URL('../../../..', import.meta.url))
 
-for (const packageDir of publicPackageDirs) {
-  const proc = Bun.spawnSync(['bun', 'publint', packageDir, '--strict'], {
-    cwd: rootDir,
-    stdout: 'pipe',
-    stderr: 'pipe'
+for (const packageDir of await publicPackageDirs()) {
+  await runCommand({
+    command: 'bun',
+    args: ['publint', packageDir, '--strict'],
+    cwd: root,
+    timeoutMs: 60_000
   })
-
-  const stdout = proc.stdout.toString()
-  const stderr = proc.stderr.toString()
-  if (!proc.success) {
-    console.error(`publint failed for ${packageDir}`)
-    if (stdout) console.error(stdout)
-    if (stderr) console.error(stderr)
-    process.exit(proc.exitCode || 1)
-  }
 }
 
 console.log('Publint package checks passed.')

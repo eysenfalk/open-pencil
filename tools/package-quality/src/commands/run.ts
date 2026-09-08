@@ -1,11 +1,13 @@
+import { runCommand } from '@open-pencil/package-artifacts'
+
 export async function runPackageQualityCommand(entrypoints: string[]): Promise<void> {
   for (const entrypoint of entrypoints) {
-    const process = Bun.spawn(['bun', entrypoint], {
-      stdin: 'inherit',
-      stdout: 'inherit',
-      stderr: 'inherit'
+    await runCommand({
+      command: 'bun',
+      args: [entrypoint],
+      cwd: process.cwd(),
+      output: 'inherit',
+      timeoutMs: 10 * 60_000
     })
-    const exitCode = await process.exited
-    if (exitCode !== 0) throw new Error(`${entrypoint} exited with code ${exitCode}`)
   }
 }

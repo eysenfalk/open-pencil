@@ -1,26 +1,18 @@
+import { fileURLToPath } from 'node:url'
+
+import { runCommand } from '@open-pencil/package-artifacts'
+
 import { publicPackageDirs } from '../packages'
 
-let failed = false
+const root = fileURLToPath(new URL('../../../..', import.meta.url))
 
-for (const packageDir of publicPackageDirs) {
-  const proc = Bun.spawnSync(
-    ['bun', 'attw', '--pack', packageDir, '--profile', 'esm-only', '--format', 'ascii'],
-    {
-      stdout: 'pipe',
-      stderr: 'pipe'
-    }
-  )
-
-  const stdout = proc.stdout.toString()
-  const stderr = proc.stderr.toString()
-  if (!proc.success) {
-    console.error(`ATTW failed for ${packageDir}`)
-    if (stdout) console.error(stdout)
-    if (stderr) console.error(stderr)
-    failed = true
-  }
+for (const packageDir of await publicPackageDirs()) {
+  await runCommand({
+    command: 'bun',
+    args: ['attw', '--pack', packageDir, '--profile', 'esm-only', '--format', 'ascii'],
+    cwd: root,
+    timeoutMs: 60_000
+  })
 }
-
-if (failed) process.exit(1)
 
 console.log('ATTW package type-resolution checks passed.')
