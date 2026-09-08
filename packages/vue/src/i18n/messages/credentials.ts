@@ -3,6 +3,8 @@ import { params } from '@nanostores/i18n'
 import { i18n } from '#vue/i18n/create'
 
 export const credentialsMessageDefaults = {
+  checkFailed: 'Could not check access to saved credentials.',
+  retryCheck: 'Retry check',
   retryAccess: 'Retry access',
   settingsTitle: 'Saved passwords and API keys',
   accessPaused: 'Access to saved credentials is paused.',

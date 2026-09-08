@@ -8,11 +8,11 @@ import SettingsGroup from '@/components/settings/layout/SettingsGroup.vue'
 import SettingsSectionHeader from '@/components/settings/layout/SettingsSectionHeader.vue'
 
 const { credentials } = useI18n()
-const { busy, paused, failed, remembered, retry } = useCredentialSettings()
+const { busy, paused, failed, checkFailed, remembered, retry, retryCheck } = useCredentialSettings()
 </script>
 
 <template>
-  <template v-if="!IS_TAURI || paused || failed">
+  <template v-if="!IS_TAURI || paused || failed || checkFailed">
     <SettingsSectionHeader>{{ credentials.settingsTitle }}</SettingsSectionHeader>
     <SettingsGroup>
       <label v-if="!IS_TAURI" class="flex items-center justify-between gap-4 px-3 py-2.5">
@@ -24,7 +24,13 @@ const { busy, paused, failed, remembered, retry } = useCredentialSettings()
         </span>
         <AppSwitch v-model="remembered" :label="credentials.rememberDevice" />
       </label>
-      <div v-if="paused" class="flex items-center justify-between gap-4 px-3 py-2.5">
+      <div v-if="checkFailed" class="flex items-center justify-between gap-4 px-3 py-2.5">
+        <span role="status" class="text-xs text-surface">{{ credentials.checkFailed }}</span>
+        <AppButton size="xs" variant="ghost" :disabled="busy" @click="retryCheck">{{
+          credentials.retryCheck
+        }}</AppButton>
+      </div>
+      <div v-else-if="paused" class="flex items-center justify-between gap-4 px-3 py-2.5">
         <span class="text-xs text-surface">{{ credentials.accessPaused }}</span>
         <AppButton size="xs" variant="ghost" :disabled="busy" @click="retry">{{
           credentials.retryAccess

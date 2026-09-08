@@ -7,15 +7,19 @@ import { IS_TAURI } from '@open-pencil/core/constants'
 import { nativeCredentialAccessRevision, invalidateNativeCredentialAccess } from '../access-state'
 import { browserCredentialsRemembered } from '../app'
 import { setRememberCredentials } from '../media'
+import { createCredentialAccessCheck } from './access-check'
 
 export function useCredentialSettings() {
   const busy = ref(false)
-  const paused = ref(false)
+  const { paused, checkFailed, check, invalidate } = createCredentialAccessCheck(() =>
+    invoke<boolean>('credential_access_paused')
+  )
   const failed = ref(false)
   let disposed = false
   let unlisten: (() => void) | undefined
   onScopeDispose(() => {
     disposed = true
+    invalidate()
     unlisten?.()
   })
   onMounted(async () => {
@@ -41,19 +45,20 @@ export function useCredentialSettings() {
   })
   watch(
     nativeCredentialAccessRevision,
-    async (_, __, onCleanup) => {
-      if (!IS_TAURI) return
-      const cancellation = new AbortController()
-      onCleanup(() => cancellation.abort())
-      try {
-        const value = await invoke<boolean>('credential_access_paused')
-        if (!cancellation.signal.aborted) paused.value = value
-      } catch {
-        if (!cancellation.signal.aborted) failed.value = true
-      }
+    async () => {
+      if (IS_TAURI) await check()
     },
     { immediate: true }
   )
+  async function retryCheck() {
+    if (busy.value) return
+    busy.value = true
+    try {
+      await check()
+    } finally {
+      busy.value = false
+    }
+  }
   async function retry() {
     if (busy.value) return
     busy.value = true
@@ -68,5 +73,5 @@ export function useCredentialSettings() {
       busy.value = false
     }
   }
-  return { busy, paused, failed, remembered, retry }
+  return { busy, paused, failed, checkFailed, remembered, retry, retryCheck }
 }
