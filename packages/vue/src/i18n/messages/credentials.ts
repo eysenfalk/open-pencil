@@ -3,8 +3,11 @@ import { params } from '@nanostores/i18n'
 import { i18n } from '#vue/i18n/create'
 
 export const credentialsMessageDefaults = {
-  retryAccess: 'Retry credential access',
-  retryReady: 'Access can be requested again. Retry the operation that failed.',
+  retryAccess: 'Retry access',
+  settingsTitle: 'Saved passwords and API keys',
+  accessPaused: 'Access to saved credentials is paused.',
+  rememberDevice: 'Remember API keys on this device',
+  sessionOnly: 'Keys are kept only until you close this session.',
   retryFailed: 'Could not reset credential access. Try again.',
   storage: params('Credentials: {backend}'),
   backendNative: 'system credential store',

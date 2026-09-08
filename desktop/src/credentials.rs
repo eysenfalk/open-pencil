@@ -274,6 +274,18 @@ fn remove_with(
 }
 
 #[tauri::command]
+pub async fn credential_access_paused() -> Result<bool, CredentialError> {
+    tauri::async_runtime::spawn_blocking(|| {
+        CREDENTIAL_ACCESS
+            .lock()
+            .map(|state| state.is_some())
+            .map_err(|_| public_error(BackendError::Failed))
+    })
+    .await
+    .map_err(|_| public_error(BackendError::Failed))?
+}
+
+#[tauri::command]
 pub async fn credential_retry_access() -> Result<(), CredentialError> {
     tauri::async_runtime::spawn_blocking(|| {
         *CREDENTIAL_ACCESS

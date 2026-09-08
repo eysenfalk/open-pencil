@@ -36,13 +36,14 @@ describe('native test credential isolation', () => {
     assert.deepEqual(result, { before: 'missing', after: 'configured', removed: 'missing' })
   })
 
-  it('offers explicit retry from the Settings footer', async () => {
+  it('hides credential controls when native access is healthy', async () => {
     await browser.keys([process.platform === 'darwin' ? 'Meta' : 'Control', ','])
-    const retry = await $('button=Retry credential access')
-    await retry.waitForDisplayed()
-    await retry.click()
-    const status = await $('[role="status"]')
-    await status.waitForDisplayed()
-    assert.match(await status.getText(), /Access can be requested again/)
+    const section = await $('[data-test-id="settings-general-panel"]')
+    await section.waitForDisplayed()
+    assert.doesNotMatch(
+      await section.getText(),
+      /system credential store|Saved passwords and API keys/
+    )
+    assert.equal(await $('button=Retry access').isExisting(), false)
   })
 })
