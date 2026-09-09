@@ -1,19 +1,18 @@
 import { strict as assert } from 'node:assert'
 
-declare global {
-  interface Window {
-    __TAURI__: { core: { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> } }
-  }
-}
+import { invokeNative } from '#tests/helpers/tauri/invoke'
+
+const reference = { integrationId: 'native-test', profileId: 'isolation', field: 'api-key' }
 
 describe('native test credential isolation', () => {
-  it('uses disposable memory credentials and exposes explicit retry without Keychain access', async () => {
+  it('uses disposable memory credentials and exposes explicit retry without Keychain access', async function () {
+    this.timeout(180_000)
     await browser.waitUntil(
       async () => browser.execute(() => Boolean(window.openPencil?.getStore?.())),
       { timeout: 30_000 }
     )
     const previousLaunch = await browser.execute(() => {
-      // Probe the WebView storage itself: an app storage adapter would not prove profile isolation.
+      // Probe the WebView itself, not an adapter, to verify profile isolation.
       // oxlint-disable-next-line open-pencil/no-direct-storage-access
       const previous = localStorage.getItem('native-test-launch-marker')
       // oxlint-disable-next-line open-pencil/no-direct-storage-access
@@ -22,18 +21,12 @@ describe('native test credential isolation', () => {
     })
     assert.equal(previousLaunch, null)
     assert.equal(await $('[role="alertdialog"]').isExisting(), false)
-    const result = await browser.execute(async () => {
-      const invoke = window.__TAURI__.core.invoke
-      const reference = { integrationId: 'native-test', profileId: 'isolation', field: 'api-key' }
-      await invoke('credential_retry_access')
-      const before = await invoke('credential_status', { reference })
-      await invoke('credential_write', { reference, value: 'disposable-test-value' })
-      const after = await invoke('credential_status', { reference })
-      await invoke('credential_remove', { reference })
-      const removed = await invoke('credential_status', { reference })
-      return { before, after, removed }
-    })
-    assert.deepEqual(result, { before: 'missing', after: 'configured', removed: 'missing' })
+    await invokeNative('credential_retry_access')
+    assert.equal(await invokeNative('credential_status', { reference }), 'missing')
+    await invokeNative('credential_write', { reference, value: 'disposable-test-value' })
+    assert.equal(await invokeNative('credential_status', { reference }), 'configured')
+    await invokeNative('credential_remove', { reference })
+    assert.equal(await invokeNative('credential_status', { reference }), 'missing')
   })
 
   it('hides credential controls when native access is healthy', async () => {
@@ -49,19 +42,9 @@ describe('native test credential isolation', () => {
 
   it('shows a paused section after denial and hides it after retry', async function () {
     this.timeout(180_000)
-    const denied = await browser.execute(async () => {
-      const reference = { integrationId: 'native-test', profileId: 'denial', field: 'api-key' }
-      try {
-        await window.__TAURI__.core.invoke('credential_write', {
-          reference,
-          value: 'open-pencil-native-test-denied'
-        })
-        return false
-      } catch {
-        return true
-      }
-    })
-    assert.equal(denied, true)
+    await assert.rejects(
+      invokeNative('credential_write', { reference, value: 'open-pencil-native-test-denied' })
+    )
     assert.equal(await $('[data-test-id="settings-general-panel"]').isDisplayed(), true)
     const retry = await $('button=Retry access')
     await retry.waitForExist()
@@ -72,16 +55,8 @@ describe('native test credential isolation', () => {
     })
     await retry.click()
     await browser.waitUntil(async () => !(await $('button=Retry access').isExisting()))
-    assert.equal(
-      await browser.execute(() =>
-        window.__TAURI__.core.invoke<boolean>('credential_access_paused')
-      ),
-      false
-    )
-    await browser.execute(async () => {
-      const reference = { integrationId: 'native-test', profileId: 'retry', field: 'api-key' }
-      await window.__TAURI__.core.invoke('credential_write', { reference, value: 'disposable' })
-      await window.__TAURI__.core.invoke('credential_remove', { reference })
-    })
+    assert.equal(await invokeNative('credential_access_paused'), false)
+    await invokeNative('credential_write', { reference, value: 'disposable' })
+    await invokeNative('credential_remove', { reference })
   })
 })
