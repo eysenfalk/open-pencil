@@ -4,6 +4,7 @@
 
 ### Added
 
+- Connect privately hosted development editors to a remote authenticated MCP bridge with a bounded file root.
 - Save AI conversations and attachment previews locally, switch between chats, rename or delete them, and browse saved transcripts across documents. Choose whether reasoning stays collapsed, expands while thinking, or stays expanded, with animated disclosure controls that respect reduced motion.
 
 - Add a searchable command palette for editor and application actions.

@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 
-import { devAutomationRoute } from '@/app/automation/bridge/portless-route'
+import { devAutomationRoute, externalDevServerHost } from '@/app/automation/bridge/portless-route'
+
+describe('private development hosting', () => {
+  test('derives the reverse-proxy hostname from the public origin', () => {
+    expect(externalDevServerHost('https://server.example.test:1420')).toBe('server.example.test')
+    expect(externalDevServerHost(undefined)).toBeUndefined()
+  })
+})
 
 describe('Portless MCP routing', () => {
   test('uses the fixed localhost bridge outside Portless', () => {
@@ -10,6 +17,40 @@ describe('Portless MCP routing', () => {
       portlessServiceName: null,
       runtimeId: 'localhost-7600'
     })
+  })
+
+  test('supports an explicit remote browser bridge for private deployments', () => {
+    expect(
+      devAutomationRoute(undefined, 7600, {
+        browserURL: 'wss://server.example.test:7600',
+        corsOrigin: 'https://server.example.test:1420'
+      })
+    ).toEqual({
+      browserURL: 'wss://server.example.test:7600',
+      corsOrigin: 'https://server.example.test:1420',
+      portlessServiceName: null,
+      runtimeId: 'server.example.test:7600'
+    })
+  })
+
+  test('requires a complete and valid explicit remote route', () => {
+    expect(() =>
+      devAutomationRoute(undefined, 7600, {
+        browserURL: 'wss://server.example.test:7600'
+      })
+    ).toThrow('requires both browserURL and corsOrigin')
+    expect(() =>
+      devAutomationRoute(undefined, 7600, {
+        browserURL: 'https://server.example.test:7600',
+        corsOrigin: 'https://server.example.test:1420'
+      })
+    ).toThrow('must use ws or wss')
+    expect(() =>
+      devAutomationRoute(undefined, 7600, {
+        browserURL: 'wss://server.example.test:7600',
+        corsOrigin: 'https://server.example.test:1420/path'
+      })
+    ).toThrow('must be an HTTP(S) origin')
   })
 
   test('derives a sibling MCP service for the main checkout', () => {

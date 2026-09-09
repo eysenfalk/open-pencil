@@ -112,6 +112,20 @@ Security defaults:
 
 Set `PORT=0` to disable TCP on macOS and Linux. Windows requires TCP. Set `OPENPENCIL_MCP_SOCKET` to override the Unix socket path, or `OPENPENCIL_MCP_DISCOVERY_PATH` to override the discovery file location. To provide a stable token, set `OPENPENCIL_MCP_AUTH_TOKEN`; an explicitly empty value disables authentication and should only be used with a trusted local socket.
 
+### Private remote development
+
+A remotely hosted development editor can connect its browser bridge to the same server-side MCP runtime. Set both public endpoints and keep them behind an authenticated private network or reverse proxy:
+
+```sh
+OPENPENCIL_DEV_ORIGIN=https://editor.example.test \
+OPENPENCIL_DEV_AUTOMATION_URL=wss://automation.example.test \
+OPENPENCIL_MCP_ROOT=/srv/designs \
+OPENPENCIL_DEV_TOKEN="$(openssl rand -hex 32)" \
+  bun run dev -- --host 127.0.0.1
+```
+
+`OPENPENCIL_DEV_ORIGIN` must be an HTTP(S) origin and `OPENPENCIL_DEV_AUTOMATION_URL` must use `ws` or `wss`. The development server embeds the token in the served app so its browser bridge can authenticate; do not expose this setup to the public internet. `OPENPENCIL_MCP_ROOT` provides the initial file-operation boundary.
+
 Endpoints are available over both active transports:
 
 - `GET /health` — server and app connection status; never returns the auth token.

@@ -20,11 +20,15 @@ export const WATCH_IGNORED = [
   ignoreMarkdownOutsideSource
 ]
 
-export function createDevServerOptions(host: string | undefined): ServerOptions {
+export function createDevServerOptions(
+  host: string | undefined,
+  allowedHost?: string
+): ServerOptions {
   return {
     port: 1420,
     strictPort: true,
     host: host || false,
+    ...(allowedHost ? { allowedHosts: [allowedHost] } : {}),
     hmr: host
       ? {
           protocol: 'ws',

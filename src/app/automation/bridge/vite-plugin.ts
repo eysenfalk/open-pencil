@@ -154,7 +154,7 @@ export function automationPlugin(
   let lifecycle = Promise.resolve()
   let configuration: DevMCPConfiguration = {
     authenticationEnabled: true,
-    rootDirectory: '',
+    rootDirectory: process.env.OPENPENCIL_MCP_ROOT ?? '',
     disabledTools: []
   }
 

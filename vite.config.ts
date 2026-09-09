@@ -9,16 +9,21 @@ import { defineConfig } from 'vite'
 
 import packageJson from './package.json'
 import { AUTOMATION_HTTP_PORT } from './packages/core/src/constants'
-import { devAutomationRoute } from './src/app/automation/bridge/portless-route'
+import { externalDevServerHost } from './src/app/automation/bridge/portless-route'
 import { createOpenPencilAliases } from './vite/aliases'
-import { localAutomationToken, openPencilAutomationPlugin } from './vite/automation'
+import {
+  localAutomationToken,
+  openPencilAutomationPlugin,
+  resolveDevAutomationRoute
+} from './vite/automation'
 import { copyCanvasKitAssetsPlugin } from './vite/canvaskit-assets'
 import { openPencilPwaPlugin } from './vite/pwa'
 import { rawMarkdownPlugin } from './vite/raw-markdown'
 import { createDevServerOptions } from './vite/server'
 
 const host = process.env.TAURI_DEV_HOST
-const automationRoute = devAutomationRoute(process.env.PORTLESS_URL, AUTOMATION_HTTP_PORT)
+const automationRoute = resolveDevAutomationRoute()
+const publicDevHost = externalDevServerHost(process.env.OPENPENCIL_DEV_ORIGIN)
 
 export default defineConfig(async ({ command }) => ({
   resolve: {
@@ -38,7 +43,7 @@ export default defineConfig(async ({ command }) => ({
     tailwindcss(),
     Icons({ compiler: 'vue3' }),
     Components({ resolvers: [IconsResolver({ prefix: 'icon' })] }),
-    openPencilAutomationPlugin(command, host),
+    openPencilAutomationPlugin(command, host, automationRoute),
     vue(),
     openPencilPwaPlugin()
   ],
@@ -46,5 +51,5 @@ export default defineConfig(async ({ command }) => ({
   build: {
     chunkSizeWarningLimit: 2500
   },
-  server: createDevServerOptions(host)
+  server: createDevServerOptions(host, publicDevHost)
 }))

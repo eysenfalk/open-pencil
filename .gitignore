@@ -75,5 +75,8 @@ components.d.ts
 # Agent scratch space (reviews, plans, test artifacts)
 scratch/
 
+# Private server-side design workspace
+designs/
+
 # OpenCode
 .opencode/
