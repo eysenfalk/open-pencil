@@ -223,7 +223,7 @@ Install the Pi MCP adapter and OpenPencil skill:
 
 ```sh
 pi install npm:pi-mcp-adapter
-pi install git:github.com/open-pencil/skills
+pi install git:github.com/eysenfalk/open-pencil-skills@dcbf78a59c1398bb742bed98b113b17484025afe
 ```
 
 The server isolates this runtime under a deterministic discovery path. Add that path to Pi's MCP config without discarding any existing servers:
@@ -242,7 +242,32 @@ const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath
 config.mcpServers ??= {}
 config.mcpServers['open-pencil'] = {
   command: 'openpencil-mcp',
-  env: { OPENPENCIL_MCP_DISCOVERY_PATH: process.env.OPENPENCIL_DISCOVERY_PATH }
+  env: { OPENPENCIL_MCP_DISCOVERY_PATH: process.env.OPENPENCIL_DISCOVERY_PATH },
+  // Keep the high-frequency live-design loop immediately available while the
+  // remaining 100+ tools stay discoverable through the adapter's MCP proxy.
+  directTools: [
+    'list_documents',
+    'list_pages',
+    'get_selection',
+    'select_nodes',
+    'get_page_tree',
+    'get_node',
+    'query_nodes',
+    'render',
+    'update_node',
+    'batch_update',
+    'set_fill',
+    'set_stroke',
+    'set_effects',
+    'set_layout',
+    'set_text',
+    'set_font',
+    'clone_node',
+    'viewport_zoom_to_fit',
+    'export_image',
+    'save_file'
+  ],
+  approveTools: ['delete_*', 'open_file', 'new_document']
 }
 fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
 NODE
@@ -258,7 +283,26 @@ Use the OpenPencil skill and MCP server. Call list_documents, inspect the curren
 
 A successful `list_documents` call confirms the full path: Pi → MCP adapter → stdio launcher → server discovery → authenticated browser bridge → editor. The CLI can also work headlessly by passing a `.fig` or `.pen` path; MCP app-mode calls require a connected editor tab.
 
-### 5. Update and troubleshoot
+The server-level `OPENPENCIL_MCP_ROOT` remains authoritative when a browser has no explicit MCP root preference. Use the smallest directory that contains the designs Pi should open, save, or export. In a multi-project workspace this can be the projects directory; a dedicated design directory is safer when practical.
+
+### 5. Work live with visual verification
+
+Keep the editor URL and target document open while Pi works. Use an image-capable model (`pi --list-models` shows an `images` column), and leave Pi's `images.blockImages` setting disabled. `terminal.showImages` only controls whether you also see inline images in Pi's terminal.
+
+For each task, have Pi follow this loop:
+
+1. Call `list_documents`, then pass the returned `document_id` and `page_id` explicitly on later calls.
+2. Inspect the target with `get_selection`, `get_page_tree`, `get_node`, or `query_nodes`.
+3. Create coherent UI trees with `render`; use `batch_update` and focused style/layout tools for revisions so the browser receives meaningful change batches.
+4. Call `export_image` for the affected frame after each meaningful revision. Prefer one frame at a time with a longest edge around 1,600–2,000 pixels instead of exporting a very wide multi-screen page.
+5. Evaluate the returned native image, correct visual problems, and repeat until the design meets the request.
+6. Call `save_file` explicitly when the accepted live state should be persisted.
+
+`export_image` returns the rendered design itself rather than the browser chrome, viewport, panels, or cursor. This makes visual review independent of the remote browser's size and zoom. Use a browser automation screenshot only when you specifically need to inspect OpenPencil's own interface.
+
+Do not edit the same `.fig` file headlessly with the CLI while it is also being changed in the live editor. Use the CLI for disconnected/headless inspection, CI, or durable export artifacts after the live state has been saved.
+
+### 6. Update and troubleshoot
 
 ```sh
 cd /path/to/open-pencil

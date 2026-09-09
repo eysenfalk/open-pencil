@@ -187,7 +187,7 @@ Pi is also available as an optional AI SDK Harness provider. Install its compani
 
 ### Pi + private server
 
-Deploying from a source checkout for Pi? Follow the [private server quickstart](packages/docs/programmable/mcp-server.md#pi-quickstart-private-server-from-source) from clone and Tailscale Serve through CLI, MCP adapter, skill installation, and a verified `list_documents` call.
+Deploying from a source checkout for Pi? Follow the [private server quickstart](packages/docs/programmable/mcp-server.md#pi-quickstart-private-server-from-source) from clone and Tailscale Serve through CLI, MCP adapter, skill installation, live document targeting, and visual `export_image` verification.
 
 ### MCP server
 

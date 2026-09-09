@@ -34,6 +34,24 @@ describe('MCP Vite development server', () => {
     expect(env.OPENPENCIL_MCP_DISCOVERY_PATH).toBe('/tmp/mcp.json')
   })
 
+  test('preserves the operator root when the browser root is blank', () => {
+    const env = createAutomationEnvironment({
+      authToken: 'development-token',
+      baseEnv: { OPENPENCIL_MCP_ROOT: '/operator-designs' },
+      configuration: {
+        authenticationEnabled: true,
+        rootDirectory: '',
+        disabledTools: []
+      },
+      corsOrigin: 'http://localhost:1420',
+      discoveryPath: '/tmp/mcp.json',
+      httpPort: 7600,
+      socketPath: '/tmp/open-pencil.sock'
+    })
+
+    expect(env.OPENPENCIL_MCP_ROOT).toBe('/operator-designs')
+  })
+
   test('normalizes and validates typed disabled tool configuration', () => {
     expect(
       parseDevMCPConfiguration({

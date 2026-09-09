@@ -43,6 +43,7 @@
 
 ### Fixed
 
+- Preserve the operator-configured MCP file root when a browser has no explicit root preference.
 - Avoid macOS Keychain prompts during credential status checks and pause repeated credential access after failures until explicitly retried from Settings.
 
 - Route browser Command/Ctrl plus and minus shortcuts to canvas zoom instead of page zoom.
