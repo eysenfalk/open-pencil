@@ -267,7 +267,7 @@ config.mcpServers['open-pencil'] = {
     'export_image',
     'save_file'
   ],
-  approveTools: ['delete_*', 'open_file', 'new_document']
+  approveTools: ['delete_*', 'open_file', 'new_document', 'save_file']
 }
 fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
 NODE
