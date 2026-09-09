@@ -185,9 +185,13 @@ Pi is also available as an optional AI SDK Harness provider. Install its compani
    ```
 3. Open the desktop app → <kbd>Ctrl</kbd><kbd>J</kbd> → select **Claude Code** from the provider dropdown
 
+### Pi + private server
+
+Deploying from a source checkout for Pi? Follow the [private server quickstart](packages/docs/programmable/mcp-server.md#pi-quickstart-private-server-from-source) from clone and Tailscale Serve through CLI, MCP adapter, skill installation, and a verified `list_documents` call.
+
 ### MCP server
 
-Connect Claude Code, Cursor, Windsurf, or any MCP client to inspect, modify, and export design documents headlessly. 100+ tools. [Full docs →](https://openpencil.dev/reference/mcp-tools)
+Connect Claude Code, Cursor, Windsurf, or any MCP client to inspect, modify, and export documents through the running editor. 100+ tools. [Full docs →](https://openpencil.dev/reference/mcp-tools)
 
 **Stdio** (Claude Code, Cursor, Windsurf):
 

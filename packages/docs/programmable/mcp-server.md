@@ -132,6 +132,148 @@ Endpoints are available over both active transports:
 - `POST /rpc` — authenticated live-app automation.
 - `POST /mcp` — MCP Streamable HTTP. Sessions use the `mcp-session-id` header.
 
+## Pi quickstart: private server from source
+
+This Linux quickstart takes a fresh clone to a Tailscale-only editor with the source-built CLI, MCP bridge, and OpenPencil skill available in [Pi](https://github.com/badlogic/pi-mono). It deliberately uses Tailscale Serve rather than Funnel: do not publish the development server to the public internet.
+
+### 1. Clone and build
+
+Install [Bun](https://bun.com/docs/installation), [Tailscale](https://tailscale.com/download), and Pi first, then:
+
+```sh
+git clone https://github.com/eysenfalk/open-pencil.git
+cd open-pencil
+bun install --frozen-lockfile
+bun run build:packages
+
+# Expose the source-built CLI and MCP launcher in your user PATH.
+(cd packages/cli && bun link --global)
+(cd packages/mcp && bun link --global)
+
+openpencil --version
+command -v openpencil-mcp
+```
+
+This URL includes the private remote-development support described below. Substitute another fork only if it contains the same changes.
+
+### 2. Configure the private service
+
+Get this machine's MagicDNS name from `tailscale status`; omit its trailing dot. Choose a dedicated file root so agent file operations cannot escape into the rest of your home directory:
+
+```sh
+export TAILSCALE_HOST="your-machine.your-tailnet.ts.net"
+export REPO_DIR="$PWD"
+export BUN_BIN="$(command -v bun)"
+export BUN_DIR="$(dirname "$BUN_BIN")"
+export DESIGN_ROOT="$HOME/open-pencil-designs"
+
+mkdir -p "$DESIGN_ROOT" "$HOME/.config/openpencil" "$HOME/.config/systemd/user"
+umask 077
+OPENPENCIL_TOKEN="$(openssl rand -hex 32)"
+cat >"$HOME/.config/openpencil/server.env" <<EOF
+OPENPENCIL_DEV_ORIGIN=https://$TAILSCALE_HOST:1420
+OPENPENCIL_DEV_AUTOMATION_URL=wss://$TAILSCALE_HOST:7600
+OPENPENCIL_MCP_ROOT=$DESIGN_ROOT
+OPENPENCIL_DEV_TOKEN=$OPENPENCIL_TOKEN
+EOF
+
+cat >"$HOME/.config/systemd/user/openpencil.service" <<EOF
+[Unit]
+Description=OpenPencil private web editor and MCP bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$REPO_DIR
+EnvironmentFile=$HOME/.config/openpencil/server.env
+Environment=PATH=$BUN_DIR:/usr/local/bin:/usr/bin:/bin
+ExecStart=$BUN_BIN run dev -- --host 127.0.0.1
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
+EOF
+
+chmod 600 "$HOME/.config/openpencil/server.env"
+systemctl --user daemon-reload
+systemctl --user enable --now openpencil.service
+# Optional but recommended for operation without an active login session:
+sudo loginctl enable-linger "$USER"
+```
+
+The development server starts the matching authenticated MCP runtime on local port `7600`. Keep `server.env` private: its token is embedded into the served editor so the browser bridge can authenticate.
+
+### 3. Publish only inside the tailnet
+
+```sh
+tailscale serve --bg --https=1420 http://127.0.0.1:1420
+tailscale serve --bg --https=7600 http://127.0.0.1:7600
+tailscale serve status
+```
+
+Open `https://$TAILSCALE_HOST:1420` from a device in the same tailnet. Then check `https://$TAILSCALE_HOST:7600/health`; its status becomes `ok` once the editor tab has connected. Apply Tailscale ACLs if the tailnet contains users who should not control this editor. Never use `tailscale funnel` for this development deployment.
+
+### 4. Connect Pi
+
+Install the Pi MCP adapter and OpenPencil skill:
+
+```sh
+pi install npm:pi-mcp-adapter
+pi install git:github.com/open-pencil/skills
+```
+
+The server isolates this runtime under a deterministic discovery path. Add that path to Pi's MCP config without discarding any existing servers:
+
+```sh
+export MCP_RUNTIME_ID="$TAILSCALE_HOST:7600"
+export MCP_RUNTIME_HASH="$(printf %s "$MCP_RUNTIME_ID" | sha256sum | cut -c1-16)"
+export OPENPENCIL_DISCOVERY_PATH="${TMPDIR:-/tmp}/open-pencil-mcp/$MCP_RUNTIME_HASH/mcp.json"
+
+mkdir -p "$HOME/.config/mcp"
+node <<'NODE'
+const fs = require('node:fs')
+const path = require('node:path')
+const configPath = path.join(process.env.HOME, '.config/mcp/mcp.json')
+const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {}
+config.mcpServers ??= {}
+config.mcpServers['open-pencil'] = {
+  command: 'openpencil-mcp',
+  env: { OPENPENCIL_MCP_DISCOVERY_PATH: process.env.OPENPENCIL_DISCOVERY_PATH }
+}
+fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
+NODE
+chmod 600 "$HOME/.config/mcp/mcp.json"
+pi list
+```
+
+Restart Pi so it discovers the newly installed adapter and skill. Keep the editor URL open, then ask:
+
+```text
+Use the OpenPencil skill and MCP server. Call list_documents, inspect the current page, and summarize its structure without modifying it.
+```
+
+A successful `list_documents` call confirms the full path: Pi → MCP adapter → stdio launcher → server discovery → authenticated browser bridge → editor. The CLI can also work headlessly by passing a `.fig` or `.pen` path; MCP app-mode calls require a connected editor tab.
+
+### 5. Update and troubleshoot
+
+```sh
+cd /path/to/open-pencil
+git pull --ff-only
+bun install --frozen-lockfile
+bun run build:packages
+systemctl --user restart openpencil.service
+
+systemctl --user status openpencil.service
+tailscale serve status
+curl "https://$TAILSCALE_HOST:7600/health"
+```
+
+If Pi lists the MCP server but a tool reports that the app is not connected, open or reload the editor URL. If the UI loads but the WebSocket does not, verify that both Tailscale Serve ports are configured and that the two public origins in `server.env` use the same MagicDNS hostname.
+
 ## Workflow
 
 1. **Discover targets** — call `list_documents` first when more than one document or page may be open. It returns stable `document_id` and page IDs.
