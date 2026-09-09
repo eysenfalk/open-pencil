@@ -165,13 +165,25 @@ impl CredentialBackend for NativeCredentialBackend {
     }
 }
 
+fn access_state() -> std::sync::MutexGuard<'static, Option<CredentialErrorCode>> {
+    CREDENTIAL_ACCESS.lock().unwrap_or_else(|error| {
+        let mut state = error.into_inner();
+        // A backend panic may interrupt bookkeeping; require explicit retry.
+        state.get_or_insert(CredentialErrorCode::Failed);
+        CREDENTIAL_ACCESS.clear_poison();
+        state
+    })
+}
+
+fn reset_access_state() {
+    *access_state() = None;
+}
+
 fn credential_operation<T>(
     interactive: bool,
     operation: impl FnOnce() -> Result<T, CredentialError>,
 ) -> Result<T, CredentialError> {
-    let mut denied = CREDENTIAL_ACCESS
-        .lock()
-        .map_err(|_| public_error(BackendError::Failed))?;
+    let mut denied = access_state();
     if interactive {
         if let Some(code) = *denied {
             return Err(CredentialError {
@@ -280,22 +292,15 @@ fn remove_with(
 
 #[tauri::command]
 pub async fn credential_access_paused() -> Result<bool, CredentialError> {
-    tauri::async_runtime::spawn_blocking(|| {
-        CREDENTIAL_ACCESS
-            .lock()
-            .map(|state| state.is_some())
-            .map_err(|_| public_error(BackendError::Failed))
-    })
-    .await
-    .map_err(|_| public_error(BackendError::Failed))?
+    tauri::async_runtime::spawn_blocking(|| Ok(access_state().is_some()))
+        .await
+        .map_err(|_| public_error(BackendError::Failed))?
 }
 
 #[tauri::command]
 pub async fn credential_retry_access() -> Result<(), CredentialError> {
     tauri::async_runtime::spawn_blocking(|| {
-        *CREDENTIAL_ACCESS
-            .lock()
-            .map_err(|_| public_error(BackendError::Failed))? = None;
+        reset_access_state();
         Ok(())
     })
     .await
@@ -427,10 +432,34 @@ mod tests {
     }
 
     fn reset_access() {
-        *CREDENTIAL_ACCESS.lock().unwrap() = None;
+        reset_access_state();
     }
 
     static ACCESS_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn backend_panic_pauses_access_and_explicit_retry_recovers() {
+        let _guard = ACCESS_TEST_LOCK.lock().unwrap();
+        reset_access();
+        let panic = std::panic::catch_unwind(|| {
+            let _: Result<(), CredentialError> =
+                credential_operation(true, || panic!("test backend panic"));
+        });
+        assert!(panic.is_err());
+        assert!(CREDENTIAL_ACCESS.is_poisoned());
+        assert!(access_state().is_some());
+        assert!(!CREDENTIAL_ACCESS.is_poisoned());
+        let called = std::cell::Cell::new(false);
+        assert!(credential_operation(true, || {
+            called.set(true);
+            Ok(())
+        })
+        .is_err());
+        assert!(!called.get());
+        assert!(credential_operation(false, || Ok(())).is_ok());
+        reset_access_state();
+        assert!(credential_operation(true, || Ok(())).is_ok());
+    }
 
     #[test]
     fn concurrent_calls_do_not_repeat_an_interactive_failure() {
