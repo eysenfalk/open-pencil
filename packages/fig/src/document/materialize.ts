@@ -58,6 +58,11 @@ export function createFigDocumentSession(
   const loaded = new Set<string>()
   return {
     graph: state.graph,
+    graphPageId(sourcePageId: string): string | undefined {
+      return archive.reader.pages.some((page) => page.id === sourcePageId)
+        ? state.sources.get(sourcePageId)
+        : undefined
+    },
     pages: archive.reader.pages,
     loadPage(id: string): void {
       if (loaded.has(id)) return

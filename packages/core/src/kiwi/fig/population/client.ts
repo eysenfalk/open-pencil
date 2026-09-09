@@ -131,10 +131,10 @@ export function createFigPopulationWorker(graph: SceneGraph): FigPopulationWorke
   return populationWorkers.get(graph) ?? null
 }
 
-function createPopulationWorkerClient(
+export function createPopulationWorkerClient(
   graph: SceneGraph,
-  worker: Worker,
-  port?: MessagePort
+  worker: Pick<Worker, 'postMessage' | 'terminate' | 'onerror' | 'onmessage'>,
+  port?: Pick<MessagePort, 'postMessage' | 'start' | 'close' | 'onmessage'>
 ): FigPopulationWorker {
   const pending = new Map<
     string,
