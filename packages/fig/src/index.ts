@@ -1,6 +1,7 @@
 export {
   materializeDocument,
   materializeFigArchive,
+  createFigDocumentSession,
   type DocumentAssemblyOptions
 } from './document/materialize'
 export {

@@ -15,21 +15,25 @@ import { collectSceneDependencies } from './dependency-closure'
 import { inheritComponentPropertyDefinitions } from './property-inheritance'
 
 /** Indexed source document. Resources remain separate from scene occurrences. */
-export function createDocumentReader(source: readonly NodeChange[]) {
-  return createReader(source, 'copy')
+export function createDocumentReader(source: readonly NodeChange[], pageIds?: ReadonlySet<string>) {
+  return createReader(source, 'copy', pageIds)
 }
 
 /** Parse into exclusively owned records; callers never receive the mutable source index. */
-export function createArchiveDocumentReader(bytes: ArrayBuffer) {
+export function createArchiveDocumentReader(bytes: ArrayBuffer, pageIds?: ReadonlySet<string>) {
   const parsed = parseFigBuffer(bytes)
   return {
-    reader: createReader(parsed.nodeChanges, 'transfer'),
+    reader: createReader(parsed.nodeChanges, 'transfer', pageIds),
     blobs: parsed.blobs,
     images: parsed.images
   }
 }
 
-function createReader(source: readonly NodeChange[], ownership: 'copy' | 'transfer') {
+function createReader(
+  source: readonly NodeChange[],
+  ownership: 'copy' | 'transfer',
+  pageIds?: ReadonlySet<string>
+) {
   const bindingDiagnostics: BindingReferenceDiagnostic[] = []
   const changes = resolveDocumentBindingReferences(
     source,
@@ -37,10 +41,18 @@ function createReader(source: readonly NodeChange[], ownership: 'copy' | 'transf
     ownership
   )
   inheritComponentPropertyDefinitions(changes)
+  return createScopedReader(changes, bindingDiagnostics, pageIds)
+}
+
+function createScopedReader(
+  changes: NodeChange[],
+  bindingDiagnostics: BindingReferenceDiagnostic[],
+  pageIds?: ReadonlySet<string>
+) {
   const resources = changes.filter(
     (change) => change.type === 'VARIABLE' || change.type === 'VARIABLE_SET'
   )
-  const closure = collectSceneDependencies(changes)
+  const closure = collectSceneDependencies(changes, pageIds)
   if (closure.missingIds.size)
     throw new Error(`Missing reachable sources: ${[...closure.missingIds].join(', ')}`)
   const sceneChanges = changes.filter(
@@ -68,8 +80,11 @@ function createReader(source: readonly NodeChange[], ownership: 'copy' | 'transf
       if (!page.guid) throw new Error('Page has no GUID')
       return { id: guidToString(page.guid), name: page.name ?? '' }
     })
-  const pageIds = new Set(pages.map((page) => page.id))
+  const knownPageIds = new Set(pages.map((page) => page.id))
   return {
+    selectPages(ids: ReadonlySet<string>) {
+      return createScopedReader(changes, bindingDiagnostics, ids)
+    },
     get sourceRecords() {
       return structuredClone(changes)
     },
@@ -80,7 +95,7 @@ function createReader(source: readonly NodeChange[], ownership: 'copy' | 'transf
     },
     bindingDiagnostics,
     readPage(id: string, options: InterpretInstanceOptions = {}) {
-      if (!pageIds.has(id)) throw new Error(`Unknown page ${id}`)
+      if (!knownPageIds.has(id)) throw new Error(`Unknown page ${id}`)
       return interpreter.page(id, options)
     },
     planComponents(

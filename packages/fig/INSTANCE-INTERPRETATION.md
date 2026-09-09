@@ -214,6 +214,24 @@ nodes. These checks do not establish pixel fidelity. A diagnostic run measured a
 assembly and 3 GB process RSS; performance acceptance is outstanding. Shadcn assembly succeeds
 with property-path reports; nuxtui needs reassessment after dependency selection.
 
+## Incremental document sessions
+
+`createFigDocumentSession(bytes)` owns parsed source records and creates page shells.
+`loadPage(sourcePageId)` adds selected content and required dependencies to the same graph;
+repeated loads are idempotent. Existing component identity, edits, and tested sibling order
+survive subsequent loads. Record-based and archive-based one-shot APIs also accept `pageIds`.
+
+Loads buffer graph events until the mutation completes. On action failure, the page-load
+journal removes newly created nodes and restores selected existing nodes, instance indexes,
+and session lookup maps in place. This is a scoped synchronous contract, not a general-purpose
+SceneGraph transaction. Tests cover creation failure and later existing-instance/index mutation.
+
+Observers run after the page is marked loaded. Notification failures raise
+`CommittedGraphEventError` with `committed=true`; callers must not interpret that as rollback.
+Queued events continue to be attempted, but nanoevents may stop remaining listeners of the
+same event when a listener throws. Reentrant loading of another page from a committed event
+is tested. App/worker lifecycle integration and large-document session performance are pending.
+
 ## Remaining acceptance gaps
 
 - Complete ownership and precedence of provenance through inheritance, swaps, and re-expansion.

@@ -6,7 +6,8 @@ import { resolvedNumericBindingUpdate } from '../node-change/variable-bindings'
 /** Apply resolved scalar layout values after hierarchy and explicit modes exist. */
 export function applyDocumentLayoutBindings(
   graph: SceneGraph,
-  savedSizeNodes: ReadonlySet<string> = new Set()
+  savedSizeNodes: ReadonlySet<string> = new Set(),
+  existingNodeIds: ReadonlySet<string> = new Set()
 ): void {
   const sizesOverridden = new Map<string, Set<string>>()
   for (const owner of graph.getAllNodes()) {
@@ -20,6 +21,7 @@ export function applyDocumentLayoutBindings(
     })
   }
   for (const node of graph.getAllNodes()) {
+    if (existingNodeIds.has(node.id)) continue
     for (const [field, variableId] of Object.entries(node.boundVariables)) {
       if ((field === 'width' || field === 'height') && savedSizeNodes.has(node.id)) continue
       if (sizesOverridden.get(node.id)?.has(field)) continue

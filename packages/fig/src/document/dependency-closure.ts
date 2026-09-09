@@ -13,8 +13,20 @@ export interface SceneDependencyClosure {
   externalPreferredKeys: ReadonlySet<string>
 }
 
+function validatePageSelection(
+  sources: ReadonlyMap<string, NodeChange>,
+  pageIds?: ReadonlySet<string>
+): void {
+  if (!pageIds) return
+  for (const id of pageIds)
+    if (sources.get(id)?.type !== 'CANVAS') throw new Error(`Unknown page ${id}`)
+}
+
 /** Plan reachability without deleting records or expanding unrelated internal siblings. */
-export function collectSceneDependencies(changes: readonly NodeChange[]): SceneDependencyClosure {
+export function collectSceneDependencies(
+  changes: readonly NodeChange[],
+  pageIds?: ReadonlySet<string>
+): SceneDependencyClosure {
   const resolveReference = createResourceResolver(changes)
   const sources = new Map<string, NodeChange>()
   const children = new Map<string, string[]>()
@@ -33,8 +45,13 @@ export function collectSceneDependencies(changes: readonly NodeChange[]): SceneD
   const ancestorIds = new Set<string>()
   const externalPreferredKeys = new Set<string>()
   const missingIds = new Set<string>()
+  validatePageSelection(sources, pageIds)
   const pending = changes
-    .filter((node) => node.type === 'CANVAS' && node.internalOnly !== true)
+    .filter(
+      (node) =>
+        node.type === 'CANVAS' &&
+        (pageIds ? !!node.guid && pageIds.has(guidToString(node.guid)) : node.internalOnly !== true)
+    )
     .flatMap((node) => (node.guid ? [guidToString(node.guid)] : []))
   while (pending.length) {
     const id = pending.pop()

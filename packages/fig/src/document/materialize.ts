@@ -12,10 +12,13 @@ import { nodeChangeToProps } from '../node-change'
 import type { BindingReferenceDiagnostic } from './binding-references'
 import { linkComponentPropertyValues } from './component-values'
 import { applyDocumentLayoutBindings } from './layout-bindings'
+import { loadPageTransaction } from './load-transaction'
 import { createArchiveDocumentReader, createDocumentReader } from './read'
 import { materializeVariableResources } from './variables'
 
 export interface DocumentAssemblyOptions extends InterpretInstanceOptions {
+  /** Restrict scene population to these source pages plus required component ownership. */
+  pageIds?: ReadonlySet<string>
   images?: ReadonlyMap<string, Uint8Array>
   /** Explicit acknowledgement until variable-resource conversion is implemented. */
   onUnsupportedResource?: (resource: NodeChange) => void
@@ -28,19 +31,70 @@ export function materializeDocument(
   blobs: Uint8Array[] = [],
   options: DocumentAssemblyOptions = {}
 ) {
-  return materializeReader(createDocumentReader(changes), blobs, options)
+  return materializeReader(createDocumentReader(changes, options.pageIds), blobs, options)
 }
 
 /** Own parsed archive records; do not create a second full source tree. */
 export function materializeFigArchive(bytes: ArrayBuffer, options: DocumentAssemblyOptions = {}) {
-  const { reader, blobs, images } = createArchiveDocumentReader(bytes)
+  const { reader, blobs, images } = createArchiveDocumentReader(bytes, options.pageIds)
   return materializeReader(reader, blobs, { ...options, images: options.images ?? new Map(images) })
+}
+
+export interface AssemblyState {
+  graph: SceneGraph
+  sources: Map<string, string>
+  components: Map<string, MaterializedComponentOccurrence>
+  componentIds: Map<string, string>
+  savedSizeNodes: Set<string>
+}
+
+export function createFigDocumentSession(
+  bytes: ArrayBuffer,
+  options: DocumentAssemblyOptions = {}
+) {
+  const archive = createArchiveDocumentReader(bytes, new Set())
+  const sessionOptions = { ...options, images: options.images ?? new Map(archive.images) }
+  const state = materializeReader(archive.reader, archive.blobs, sessionOptions)
+  const loaded = new Set<string>()
+  return {
+    graph: state.graph,
+    pages: archive.reader.pages,
+    loadPage(id: string): void {
+      if (loaded.has(id)) return
+      const reader = archive.reader.selectPages(new Set([id]))
+      loadPageTransaction(state, reader.dependencyClosure, () => {
+        materializeReader(reader, archive.blobs, sessionOptions, state)
+        loaded.add(id)
+      })
+    },
+    get loadedPageIds(): ReadonlySet<string> {
+      return new Set(loaded)
+    }
+  }
+}
+
+function createAssemblyState(
+  reader: ReturnType<typeof createDocumentReader>,
+  options: DocumentAssemblyOptions
+): AssemblyState {
+  const graph = new SceneGraph()
+  for (const [hash, bytes] of options.images ?? []) graph.images.set(hash, bytes.slice())
+  materializeVariableResources(graph, reader.resources, options.onUnsupportedResource)
+  for (const page of graph.getPages()) graph.deleteNode(page.id)
+  return {
+    graph,
+    sources: new Map(),
+    components: new Map(),
+    componentIds: new Map(),
+    savedSizeNodes: new Set()
+  }
 }
 
 function materializeReader(
   reader: ReturnType<typeof createDocumentReader>,
   blobs: Uint8Array[],
-  options: DocumentAssemblyOptions
+  options: DocumentAssemblyOptions,
+  previous?: AssemblyState
 ) {
   for (const diagnostic of reader.bindingDiagnostics) {
     if (!options.onUnresolvedBinding)
@@ -49,19 +103,19 @@ function materializeReader(
   }
   const pages = reader.pages.map((page) => reader.readPage(page.id, options))
   const plan = reader.planComponents(pages, options)
-  const graph = new SceneGraph()
-  for (const [hash, bytes] of options.images ?? []) graph.images.set(hash, bytes.slice())
-  materializeVariableResources(graph, reader.resources, options.onUnsupportedResource)
-  for (const page of graph.getPages()) graph.deleteNode(page.id)
-  const sources = new Map<string, string>()
-  const components = new Map<string, MaterializedComponentOccurrence>()
-  const savedSizeNodes = new Set<string>()
+  const { graph, sources, components, savedSizeNodes, componentIds } =
+    previous ?? createAssemblyState(reader, options)
+  const existingNodeIds = new Set(graph.nodes.keys())
   const rememberDerivedSizes = (nodes: ReadonlyMap<InstanceOccurrence, SceneNode>): void => {
     for (const [occurrence, node] of nodes) if (occurrence.derivedSize) savedSizeNodes.add(node.id)
   }
-  const componentIds = new Map<string, string>()
   const createShells = (occurrence: InstanceOccurrence, parentId: string): void => {
     if (occurrence.mainComponentId !== null) return
+    const existingId = sources.get(occurrence.sourceId)
+    if (existingId) {
+      for (const child of occurrence.children) createShells(child, existingId)
+      return
+    }
     const { nodeType, ...props } = nodeChangeToProps(occurrence.properties, blobs)
     if (nodeType === 'DOCUMENT' || nodeType === 'VARIABLE')
       throw new Error(`Unsupported scene type ${nodeType}`)
@@ -72,6 +126,7 @@ function materializeReader(
   }
   for (const page of pages) createShells(page, graph.rootId)
   for (const item of plan) {
+    if (components.has(item.sourceId)) continue
     const parentId = sources.get(item.parentSourceId)
     if (!parentId) throw new Error(`Unmaterialized component parent ${item.parentSourceId}`)
     const existingNodes = new Map<InstanceOccurrence, SceneNode>()
@@ -103,7 +158,7 @@ function materializeReader(
     if (!parentId) throw new Error(`Missing source container ${occurrence.sourceId}`)
     const ordered: string[] = []
     for (const child of occurrence.children) {
-      if (child.mainComponentId !== null) {
+      if (child.mainComponentId !== null && !sources.has(child.sourceId)) {
         const materialized = materializeInstance(
           graph,
           parentId,
@@ -115,16 +170,20 @@ function materializeReader(
         rememberDerivedSizes(materialized.nodes)
         linkInstanceSourceChildren(child, materialized, components)
         sources.set(child.sourceId, materialized.root.id)
-      } else if (child.properties.type !== 'SYMBOL') populateInstances(child)
+      } else if (child.mainComponentId === null && child.properties.type !== 'SYMBOL')
+        populateInstances(child)
       const id = sources.get(child.sourceId)
       if (!id) throw new Error(`Missing assembled child ${child.sourceId}`)
       ordered.push(id)
     }
     const parent = graph.getNode(parentId)
-    if (parent) parent.childIds = ordered
+    if (parent)
+      parent.childIds = [...ordered, ...parent.childIds.filter((id) => !ordered.includes(id))]
   }
   for (const page of pages) populateInstances(page)
-  linkComponentPropertyValues(graph, sources)
-  graph.preserveSourceMetadataDuring(() => applyDocumentLayoutBindings(graph, savedSizeNodes))
-  return { graph, sources }
+  linkComponentPropertyValues(graph, sources, existingNodeIds)
+  graph.preserveSourceMetadataDuring(() =>
+    applyDocumentLayoutBindings(graph, savedSizeNodes, existingNodeIds)
+  )
+  return { graph, sources, components, componentIds, savedSizeNodes }
 }
